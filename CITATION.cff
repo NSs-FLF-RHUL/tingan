@@ -1,0 +1,15 @@
+# To configure your package, you'll need to set some of the fields in this file.
+# We have flagged these with FIXME, so if you CTRL+F you'll find those spots.
+# We've added comments to places where it might not be clear what should replace the placeholder.
+# You can delete these comments (and this long one!) when you're done.
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: "surname"
+    given-names: "forename"
+    email: "f.surname@rhul.ac.uk"
+    orcid: "https://orcid.org/0000-0000-0000-0000" # optional, you can delete this line if you don't have an ORCID
+repository-code: "https://github.com/NSs-FLF-RHUL/FIXME" # replace FIXME with the repository name
+title: "FIXME" # name of your package
+license: "GPL-3.0"

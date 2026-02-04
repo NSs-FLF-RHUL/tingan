@@ -1,0 +1,89 @@
+# To configure your package, you'll need to set some of the fields in this file.
+# We have flagged these with FIXME, so if you CTRL+F you'll find those spots.
+# We've added comments to places where it might not be clear what should replace the placeholder.
+# You can delete these comments (and this long one!) when you're done.
+[project]
+authors = [{ email = "FIXME@rhul.ac.uk", name = "FIXME" }] # full name and email address
+classifiers = [
+  "Operating System :: POSIX",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Typing :: Typed",
+]
+dependencies = []
+description = "FIXME" # description of what the package provides / does
+dynamic = ["version"]
+keywords = []
+license = "GPL-3.0"
+license-files = ["LICENSE.md"]
+name = "FIXME" # name of the package. Should match the name of the folder inside src/
+readme = "README.md"
+requires-python = ">=3.11"
+urls.homepage = "https://github.com/NSs-FLF-RHUL/FIXME" # replace FIXME with the repository name
+
+[project.optional-dependencies]
+dev = ["build", "mypy", "pre-commit", "ruff", "tox", "twine"]
+docs = [
+  "mkdocs",
+  "mkdocs-include-markdown-plugin",
+  "mkdocs-material",
+  "mkdocstrings",
+  "mkdocstrings-python",
+]
+test = ["pytest", "pytest-cov"]
+
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools", "setuptools-scm"]
+
+[tool.setuptools_scm]
+local_scheme = "no-local-version"
+write_to = "src/FIXME/_version.py" # replace FIXME with the name of the package
+
+[tool.coverage]
+report = { sort = "cover" }
+run = { branch = true, parallel = true, source = ["FIXME"] } # replace FIXME with the name of the package
+paths.source = ["src", ".tox*/*/lib/python*/site-packages"]
+
+[tool.mypy]
+explicit_package_bases = true
+
+[tool.pytest.ini_options]
+addopts = ["--color=yes", "--import-mode=importlib", "--verbose"]
+testpaths = ["tests"]
+
+[tool.ruff]
+fix = true
+force-exclude = true
+lint.ignore = [
+  "COM812", # trailing commas (ruff-format recommended)
+  "D203",   # no-blank-line-before-class
+  "D212",   # multi-line-summary-first-line
+  "D407",   # removed dashes lines under sections
+  "D417",   # argument description in docstring (unreliable)
+  "ISC001", # simplify implicit str concatenation (ruff-format recommended)
+]
+lint.per-file-ignores = { "tests*" = [
+  "D100",   # Missing docstring in public module
+  "D401",   # 1st line should be imperative
+  "INP001", # File is part of an implicit namespace package.
+  "S101",   # Use of `assert` detected
+] }
+lint.select = ["ALL"]
+lint.isort.known-first-party = ["FIXME"] # replace FIXME with the name of the package
+lint.mccabe.max-complexity = 18
+lint.pep8-naming.classmethod-decorators = ["classmethod"]
+
+[tool.tox]
+env_list = ["py311"]
+
+[tool.tox.env.docs]
+commands = [["mkdocs", "build", "--strict", "--verbose"]]
+extras = ["docs"]
+
+[tool.tox.env_run_base]
+commands = [["pytest", "--cov", "--cov-report=xml", "tests/"]]
+extras = ["test"]
+gh.python."3.11" = ["py311"]

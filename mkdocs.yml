@@ -1,0 +1,68 @@
+# To configure your package, you'll need to set some of the fields in this file.
+# We have flagged these with FIXME, so if you CTRL+F you'll find those spots.
+# We've added comments to places where it might not be clear what should replace the placeholder.
+# You can delete these comments (and this long one!) when you're done.
+site_name: "FIXME" # typically the package name, but it's the text that appears in the tab when the site is open in a browser
+site_description: "FIXME" # usually this'll be "documentation for PACKAGE"
+site_author: "FIXME" # you!
+copyright: "Copyright © 2026 FIXME" # your full name (as per the pyproject.toml authors)
+repo_url: "https://github.com/NSs-FLF-RHUL/FIXME" # replace FIXME with the repository name
+repo_name: "NSs-FLF-RHUL/FIXME" # replace FIXME with the repository name
+edit_uri: edit/main/docs/
+
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+
+theme:
+  name: "material"
+  features:
+    - content.action.edit
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Overview: index.md
+  - Contributing: contributing.md
+  - API reference: api.md
+  - License: LICENSE.md
+
+markdown_extensions:
+  - pymdownx.tasklist
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          inventories:
+            - "https://docs.python.org/3/objects.inv"
+          options:
+            docstring_style: google
+            show_submodules: true
+          paths: [src]
+  - include-markdown:
+      opening_tag: "{!"
+      closing_tag: "!}"
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: "https://github.com/NSs-FLF-RHUL"
