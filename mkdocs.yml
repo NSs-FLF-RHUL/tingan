@@ -1,9 +1,9 @@
-site_name: "tingan" 
+site_name: "tingan"
 site_description: "Documentation for tingan" # usually this'll be "Documentation for PACKAGE"
-site_author: "Joanna Berteaud" 
-copyright: "Copyright © 2026 Joanna Berteaud" 
-repo_url: "https://github.com/NSs-FLF-RHUL/tingan" 
-repo_name: "NSs-FLF-RHUL/tingan" 
+site_author: "Joanna Berteaud"
+copyright: "Copyright © 2026 Joanna Berteaud"
+repo_url: "https://github.com/NSs-FLF-RHUL/tingan"
+repo_name: "NSs-FLF-RHUL/tingan"
 edit_uri: edit/main/docs/
 
 validation:

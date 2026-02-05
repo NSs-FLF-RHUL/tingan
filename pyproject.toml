@@ -17,7 +17,7 @@ license-files = ["LICENSE.md"]
 name = "tingan" # name of the package. Should match the name of the folder inside src/
 readme = "README.md"
 requires-python = ">=3.11"
-urls.homepage = "https://github.com/NSs-FLF-RHUL/tingan" 
+urls.homepage = "https://github.com/NSs-FLF-RHUL/tingan"
 
 [project.optional-dependencies]
 dev = ["build", "mypy", "pre-commit", "ruff", "tox", "twine"]
@@ -36,11 +36,11 @@ requires = ["setuptools", "setuptools-scm"]
 
 [tool.setuptools_scm]
 local_scheme = "no-local-version"
-write_to = "src/tingan/_version.py" 
+write_to = "src/tingan/_version.py"
 
 [tool.coverage]
 report = { sort = "cover" }
-run = { branch = true, parallel = true, source = ["tingan"] } 
+run = { branch = true, parallel = true, source = ["tingan"] }
 paths.source = ["src", ".tox*/*/lib/python*/site-packages"]
 
 [tool.mypy]
@@ -68,7 +68,7 @@ lint.per-file-ignores = { "tests*" = [
   "S101",   # Use of `assert` detected
 ] }
 lint.select = ["ALL"]
-lint.isort.known-first-party = ["tingan"] 
+lint.isort.known-first-party = ["tingan"]
 lint.mccabe.max-complexity = 18
 lint.pep8-naming.classmethod-decorators = ["classmethod"]
 
