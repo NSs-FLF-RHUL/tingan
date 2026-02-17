@@ -1,0 +1,8 @@
+manualSeed: 999
+workers: 2
+train_size: 1024
+batch_size: 128
+nz: 64
+num_epochs: 5
+lr: 0.0002
+beta1: 0.5
