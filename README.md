@@ -1,5 +1,4 @@
-<!-- Replace all instances of FIXME in this file with your package name, then delete this line! -->
-# FIXME
+# tingan
 
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![Tests status][tests-badge]][tests-link]
@@ -8,12 +7,12 @@
 [![License][license-badge]](./LICENSE.md)
 
 <!-- prettier-ignore-start -->
-[tests-badge]:              https://github.com/NSs-FLF-RHUL/FIXME/actions/workflows/tests.yml/badge.svg
-[tests-link]:               https://github.com/NSs-FLF-RHUL/FIXME/actions/workflows/tests.yml
-[linting-badge]:            https://github.com/NSs-FLF-RHUL/FIXME/actions/workflows/linting.yml/badge.svg
-[linting-link]:             https://github.com/NSs-FLF-RHUL/FIXME/actions/workflows/linting.yml
-[documentation-badge]:      https://github.com/NSs-FLF-RHUL/FIXME/actions/workflows/docs.yml/badge.svg
-[documentation-link]:       https://github.com/NSs-FLF-RHUL/FIXME/actions/workflows/docs.yml
+[tests-badge]:              https://github.com/NSs-FLF-RHUL/tingan/actions/workflows/tests.yml/badge.svg
+[tests-link]:               https://github.com/NSs-FLF-RHUL/tingan/actions/workflows/tests.yml
+[linting-badge]:            https://github.com/NSs-FLF-RHUL/tingan/actions/workflows/linting.yml/badge.svg
+[linting-link]:             https://github.com/NSs-FLF-RHUL/tingan/actions/workflows/linting.yml
+[documentation-badge]:      https://github.com/NSs-FLF-RHUL/tingan/actions/workflows/docs.yml/badge.svg
+[documentation-link]:       https://github.com/NSs-FLF-RHUL/tingan/actions/workflows/docs.yml
 [license-badge]:            https://img.shields.io/badge/License-GPLv3-blue.svg
 <!-- prettier-ignore-end -->
 
@@ -34,7 +33,7 @@ Vanessa Graber ([vanessa.graber@rhul.ac.uk](mailto:vanessa.graber@rhul.ac.uk))
 
 <!-- Any tools or versions of languages needed to run code. For example specific Python or Node versions. Minimum hardware requirements also go here. -->
 
-`FIXME` requires Python 3.11.
+`tingan` requires Python 3.11.
 
 ### Installation
 
@@ -43,17 +42,17 @@ Vanessa Graber ([vanessa.graber@rhul.ac.uk](mailto:vanessa.graber@rhul.ac.uk))
 We recommend installing in a project specific virtual environment created using
 a environment management tool such as
 [Conda](https://docs.conda.io/projects/conda/en/stable/). To install the latest
-development version of `FIXME` using `pip` in the currently active
+development version of `tingan` using `pip` in the currently active
 environment run
 
 ```sh
-pip install git+https://github.com/NSs-FLF-RHUL/FIXME.git
+pip install git+https://github.com/NSs-FLF-RHUL/tingan.git
 ```
 
 Alternatively create a local clone of the repository with
 
 ```sh
-git clone https://github.com/NSs-FLF-RHUL/FIXME.git
+git clone https://github.com/NSs-FLF-RHUL/tingan.git
 ```
 
 and then install in editable mode by running

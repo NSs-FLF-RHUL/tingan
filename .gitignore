@@ -9,6 +9,7 @@ data/
 __pycache__/
 *.py[cod]
 *$py.class
+src/tingan/_version.py
 
 # C extensions
 *.so
