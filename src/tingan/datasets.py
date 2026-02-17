@@ -2,7 +2,7 @@ import torch
 
 
 class TimingNoise(torch.utils.data.Dataset):
-    def __init__(self, size):
+    def __init__(self, size: tuple[int, ...]) -> None:
         self.size = size
         self.std = torch.randn(self.size)
 
