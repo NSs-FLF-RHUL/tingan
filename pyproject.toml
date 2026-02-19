@@ -8,8 +8,8 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Typing :: Typed",
 ]
-dependencies = []
-description = "Pulsar timing noise GAN simulator" # description of what the package provides / does
+dependencies = ["torch", "numpy", "matplotlib", "pyyaml"]
+description = "A realistic pulsar timing noise simulator." # description of what the package provides / does
 dynamic = ["version"]
 keywords = []
 license = "GPL-3.0"
@@ -32,7 +32,7 @@ test = ["pytest", "pytest-cov"]
 
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools", "setuptools-scm", "torch", "numpy", "matplotlib", "pyyaml"]
+requires = ["setuptools", "setuptools-scm"]
 
 [tool.setuptools_scm]
 local_scheme = "no-local-version"
@@ -60,13 +60,17 @@ lint.ignore = [
   "D407",   # removed dashes lines under sections
   "D417",   # argument description in docstring (unreliable)
   "ISC001", # simplify implicit str concatenation (ruff-format recommended)
-  "T201",   # print found (JB)
 ]
 lint.per-file-ignores = { "tests*" = [
   "D100",   # Missing docstring in public module
   "D401",   # 1st line should be imperative
   "INP001", # File is part of an implicit namespace package.
   "S101",   # Use of `assert` detected
+], "scripts*" = [
+  "D100",   # Missing docstring in public module
+  "D401",   # 1st line should be imperative
+  "INP001", # File is part of an implicit namespace package.
+  "T201",   # print found (JB)
 ] }
 lint.select = ["ALL"]
 lint.isort.known-first-party = ["tingan"]

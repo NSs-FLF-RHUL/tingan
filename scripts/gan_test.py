@@ -4,6 +4,7 @@ import random
 from enum import Enum
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch.utils.data
 import yaml
@@ -14,12 +15,12 @@ from tingan.networks import Discriminator, Generator
 from tingan.plots import plot_losses, plot_timing_noise, plot_timing_noise_properties
 
 # Variables
-with Path("config.yaml").open("r") as stream:
+with Path("configs/basic_test_config.yaml").open("r") as stream:
     config = yaml.safe_load(stream)
 
 
 class TrainingLabels(Enum):
-    """Defines binary labels noice classification."""
+    """Defines binary labels noise classification."""
 
     FAKE = 0
     REAL = 1
@@ -45,7 +46,7 @@ dataloader = torch.utils.data.DataLoader(
 
 # Plot some training data
 real_batch = next(iter(dataloader))
-plot_timing_noise(real_batch, tin_type="Training")
+train_noise_plot = plot_timing_noise(real_batch, tin_type="Training")
 
 # Create the generator
 netg = Generator(nz=config["nz"]).to(device)
@@ -62,19 +63,23 @@ input_noise = torch.randn(config["batch_size"], config["nz"], device=device)
 untrained_noise = netg(input_noise)
 
 input_output_before_training = np.zeros((128, 64, 2))
-input_output_before_training[:, :, 0] = input_noise.detach().numpy()
-input_output_before_training[:, :, 1] = untrained_noise.detach().numpy()
+input_output_before_training[:, :, 0] = input_noise.detach().cpu().numpy()
+input_output_before_training[:, :, 1] = untrained_noise.detach().cpu().numpy()
 
-plot_timing_noise(
+noise_plot = plot_timing_noise(
     input_output_before_training, tin_type="Input and output (before training)"
 )
-plot_timing_noise_properties(
+noise_prop_plot = plot_timing_noise_properties(
     (
-        real_batch.detach().numpy(),
-        input_noise.detach().numpy(),
-        untrained_noise.detach().numpy(),
+        real_batch.detach().cpu().numpy(),
+        input_noise.detach().cpu().numpy(),
+        untrained_noise.detach().cpu().numpy(),
     )
 )
+noise_prop_plot.show()
+
+for fig in [train_noise_plot, noise_plot, noise_prop_plot]:
+    fig.show()
 
 # Setup Adam optimizers for both G and D
 optimizerd = optim.Adam(
@@ -93,7 +98,7 @@ iters = 0
 # For each epoch
 for epoch in range(config["num_epochs"]):
     # For each batch in the dataloader
-    for i, data in enumerate(dataloader, 0):
+    for i, data in enumerate(dataloader):
         ############################
         # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
         ###########################
@@ -174,6 +179,12 @@ for epoch in range(config["num_epochs"]):
 
         iters += 1
 
-plot_losses(g_losses, d_losses)
-plot_timing_noise(noise_list[-1], tin_type="Trained")
-plot_timing_noise_properties((real_batch.detach().numpy(), noise_list[-1]))
+loss_plot = plot_losses(g_losses, d_losses)
+noise_plot = plot_timing_noise(noise_list[-1], tin_type="Trained")
+noise_prop_plot = plot_timing_noise_properties(
+    (real_batch.detach().cpu().numpy(), noise_list[-1])
+)
+
+for fig in [loss_plot, noise_plot, noise_prop_plot]:
+    fig.show()
+plt.show()
