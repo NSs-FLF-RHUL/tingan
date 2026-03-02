@@ -70,6 +70,11 @@ lint.per-file-ignores = { "tests*" = [
   "D401",   # 1st line should be imperative
   "INP001", # File is part of an implicit namespace package.
   "S101",   # Use of `assert` detected
+], "scripts*" = [
+  "D100",   # Missing docstring in public module
+  "D401",   # 1st line should be imperative
+  "INP001", # File is part of an implicit namespace package.
+  "T201",   # print found (JB)
 ] }
 lint.select = ["ALL"]
 lint.isort.known-first-party = ["FIXME"] # replace FIXME with the name of the package
