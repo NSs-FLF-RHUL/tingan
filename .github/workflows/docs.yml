@@ -36,7 +36,7 @@ jobs:
         run: python -m pip install tox
 
       - name: Build HTML documentation with tox
-        run: tox -e docs
+        run: tox run -e docs
 
       - name: Upload build artefact
         if: |
@@ -45,7 +45,7 @@ jobs:
         uses: actions/upload-pages-artifact@v4
         with:
           # path should be the -d, --site-dir target of the mkdocs build, that is run in
-          # tox -e docs
+          # tox run -e docs
           path: site
           name: github-pages
 
