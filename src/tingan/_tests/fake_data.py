@@ -46,8 +46,7 @@ def fake_pulsar_data(
 
         if extra_keys or missing_keys:
             msg = (
-                "Extra, or missing, keys provided."
-                "\nExtra keys: "
+                "Extra keys: "
                 + ", ".join(extra_keys)
                 + "\nMissing keys: "
                 + ", ".join(missing_keys)
