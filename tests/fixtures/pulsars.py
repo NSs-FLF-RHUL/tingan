@@ -25,7 +25,7 @@ def n_boring_pulsars(
             "F0": 1.0,
             "pepoch": 1.0,
             "mjd": np.arange(n_residuals, dtype=float),
-            "residuals": np.zeros((10,)),
+            "residual": np.zeros((10,)),
         }
         return (pulsar,) * n_pulsars
 

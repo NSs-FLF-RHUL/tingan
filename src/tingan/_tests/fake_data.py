@@ -21,7 +21,7 @@ def fake_pulsar_data(
     - (np.ndarray) residual
 
     The `mjd` and `residual` keys will be written to a `residuals.npz` file, whilst
-    the other parameters will be written to a `model_parameters.json` file. Each
+    the other parameters will be written to a `model_params.json` file. Each
     dictionary provided will create these files and place them into a subdirectory
     within `tmp_path`. Subdirectories will be named as `psr-XX` with `XX` being the
     position in the `psr_params` sequence that the corresponding dictionary was given.
@@ -35,7 +35,7 @@ def fake_pulsar_data(
     :param data_dir: Directory into which to insert fake data.
     :param psr_params: Dictionaries containing data to write to pulsar directories.
     """
-    expected_keys = {"TNRedGam", "TNRedAmp", "F2", "F0", "pepoch"}
+    expected_keys = {"TNRedGam", "TNRedAmp", "F2", "F0", "pepoch", "mjd", "residual"}
     subdirs_created = []
 
     for i, pulsar_data in enumerate(psr_params):
@@ -60,16 +60,20 @@ def fake_pulsar_data(
         subdirs_created.append(subdir)
 
         # Save .npz data
-        np.savez(subdir / "residuals.npz", pulsar_data["mjd"], pulsar_data["residual"])
+        np.savez(
+            subdir / "residuals.npz",
+            mjd=pulsar_data["mjd"],
+            residual=pulsar_data["residual"],
+        )
 
         # Save model parameters
-        with Path.open(subdir / "model_parameters.json", "w") as f:
+        with Path.open(subdir / "model_params.json", "w") as f:
             # Dump everything except the array keys
             json.dump(
                 {
                     key: value
-                    for key, value in psr_params.items()
-                    if key not in ("mjd", "residuals")
+                    for key, value in pulsar_data.items()
+                    if key not in ("mjd", "residual")
                 },
                 f,
             )
