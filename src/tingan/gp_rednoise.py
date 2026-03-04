@@ -74,7 +74,7 @@ def gaussian_kde_1d(data: list | np.ndarray, size: int = 100) -> np.ndarray:
 
 def gaussian_kde_2d(
     data_x: list | np.ndarray, data_y: list | np.ndarray, size: int = 100
-) -> tuple:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Fit a 2D PDF using gaussian kernel.
 
@@ -120,7 +120,7 @@ def simulate_power_spectrum(
     nreal: int = 100,
     npoints: int = 1024,
     dt: float | np.ndarray = 1800000.0,
-) -> tuple:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Simulate red noise power spectra.
 
