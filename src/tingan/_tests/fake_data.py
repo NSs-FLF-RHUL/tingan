@@ -6,7 +6,7 @@ import numpy as np
 
 def fake_pulsar_data(
     data_dir: Path, *psr_params: dict[str, float | np.ndarray]
-) -> tuple[Path]:
+) -> tuple[Path, ...]:
     """
     Create fake pulsar results, the directories in which the fake results reside.
 

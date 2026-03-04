@@ -7,7 +7,7 @@ import pytest
 @pytest.fixture
 def n_boring_pulsars(
     n_residuals: int = 10,
-) -> Callable[[int], tuple[dict[str, float | np.ndarray]]]:
+) -> Callable[[int], tuple[dict[str, float | np.ndarray], ...]]:
     """
     Create `n` identical pulsars displaying no interesting features.
 
@@ -17,7 +17,7 @@ def n_boring_pulsars(
     Fixture is designed for use with the `fake_pulsar_data` function.
     """
 
-    def _inner(n_pulsars: int = 3) -> tuple[dict[str, float | np.ndarray]]:
+    def _inner(n_pulsars: int = 3) -> tuple[dict[str, float | np.ndarray], ...]:
         pulsar = {
             "TNRedGam": 1.0,
             "TNRedAmp": 1.0,

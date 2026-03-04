@@ -26,7 +26,7 @@ def test_fake_pulsars_model_params(
     tmp_path: Path,
     n_boring_pulsars,
     n_pulsars: int = 2,
-    expected_param_keys: tuple[str] = (
+    expected_param_keys: tuple[str, ...] = (
         "TNRedGam",
         "TNRedAmp",
         "F2",
@@ -60,7 +60,7 @@ def test_fake_pulsars_npz_file(
     tmp_path: Path,
     n_boring_pulsars,
     n_pulsars: int = 2,
-    expected_npz_arrays: tuple[str] = ("mjd", "residual"),
+    expected_npz_arrays: tuple[str, ...] = ("mjd", "residual"),
 ) -> None:
     """Test that fake_pulsar_data correctly writes residuals.npz."""
     fake_pulsars = list(n_boring_pulsars(n_pulsars))
