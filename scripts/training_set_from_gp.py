@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -15,8 +17,9 @@ save = False
 plot = True
 nsim = 100
 
-gammas, amplitudes, tstart, tspans, resid, time, psrs = load_gammas_and_amplitudes(
-    return_psrs=True
+psrs = Path("/home/jberteaud/Science/EOS/tingan/data/real/").glob("[JB]*")
+gammas, amplitudes, tstart, tspans, resid, time = load_gammas_and_amplitudes(
+    psrs,
 )
 kde_2d, x, y = gaussian_kde_2d(gammas, amplitudes)
 kde_gammas = marginalize_2d_kde(kde_2d, 0, x[:, 0])

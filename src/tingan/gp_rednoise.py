@@ -6,7 +6,9 @@ and simulate new ones.
 
 """
 
+import contextlib
 import json
+from collections.abc import Iterator
 from pathlib import Path
 
 import numpy as np
@@ -17,13 +19,13 @@ seconds_per_day = 86400.0
 f_1yr = 1 / (365.25 * seconds_per_day)  # in per second
 
 
-def load_gammas_and_amplitudes(*, return_psrs: bool = False) -> tuple:
+def load_gammas_and_amplitudes(psrs: Iterator[Path]) -> tuple:
     """
     Load Gaussian process fit parameters from file.
 
-    :param return_psrs: Return pulsar names? (default: False).
+    :param psrs: Pulsar folders that contain
+     timing fit results (model_params.json and residuals.npz).
     """
-    psrs = Path("/home/jberteaud/Science/EOS/tingan/data/real/").glob("[JB]*")
     npsrs = psrs.__sizeof__()
     gammas, amplitudes, tstart, tspans = (
         np.zeros(npsrs),
@@ -55,9 +57,7 @@ def load_gammas_and_amplitudes(*, return_psrs: bool = False) -> tuple:
         dat_y_no_f2 -= np.polyval(p, dat_t)
         resid.append(dat_y_no_f2)
         time.append(dat_t)
-    if return_psrs:
-        return gammas, amplitudes, tstart, tspans, resid, time, psrs
-    return gammas, amplitudes, tstart, tspans, resid, time
+    return gammas[:i], amplitudes[:i], tstart[:i], tspans[:i], resid[:i], time[:i]
 
 
 def gaussian_kde_1d(data: list | np.ndarray, size: int = 100) -> np.ndarray:
@@ -130,7 +130,10 @@ def simulate_power_spectrum(
     :param npoints: number of points per realization.
     :param dt: time step in seconds.
     """
-    dt = np.ndarray([dt]).reshape(1, -1)
+    try:
+        dt = np.ndarray([dt]).reshape(1, -1)
+    except TypeError:
+        contextlib.suppress(TypeError)
     if type(gammas) is list:
         gammas = np.array(gammas)
     n = nreal * npoints
