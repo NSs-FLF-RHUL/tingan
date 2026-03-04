@@ -15,8 +15,8 @@ import numpy as np
 from scipy.integrate import simpson
 from scipy.stats import _continuous_distns, gaussian_kde, norm
 
-seconds_per_day = 86400.0
-f_1yr = 1 / (365.25 * seconds_per_day)  # in per second
+SECONDS_PER_DAY = 86400.0
+F_1YR = 1 / (365.25 * SECONDS_PER_DAY)  # in per second
 
 
 def load_gammas_and_amplitudes(psrs: Iterator[Path]) -> tuple:
@@ -51,7 +51,7 @@ def load_gammas_and_amplitudes(psrs: Iterator[Path]) -> tuple:
         f0 = model_params["F0"]  # in seconds per second
         pepoch = model_params["pepoch"]  # in MJD
         dat_y_no_f2 = (
-            dat_y - (f2 / 6.0 / f0) * ((dat_t - pepoch) * seconds_per_day) ** 3
+            dat_y - (f2 / 6.0 / f0) * ((dat_t - pepoch) * SECONDS_PER_DAY) ** 3
         )
         p = np.polyfit(dat_t, dat_y_no_f2, 2)
         dat_y_no_f2 -= np.polyval(p, dat_t)
@@ -143,7 +143,7 @@ def simulate_power_spectrum(
         ((np.power(10, amplitudes)) ** 2)
         / 12.0
         / np.pi**2
-        * np.power(f_1yr, gammas - 3)
+        * np.power(F_1YR, gammas - 3)
         * np.power(freq, -gammas)
         * df
     ) / 4.0

@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from tingan.gp_rednoise import (
+    SECONDS_PER_DAY,
     gaussian_kde_1d,
     gaussian_kde_2d,
     gaussian_pdf,
@@ -89,12 +90,12 @@ tstart_sim = rng.uniform(tstart.min(), tstart.max(), nsim)
 tspans_sim = rng.uniform(tspans.min(), tspans.max(), nsim)
 
 power, freq = simulate_power_spectrum(
-    gammas_sim, amplitudes_sim, dt=(86400.0 * tspans_sim) / 1024
+    gammas_sim, amplitudes_sim, dt=(SECONDS_PER_DAY * tspans_sim) / 1024
 )
 noise = simulate_noise_from_power_spectrum(power, freq)
 
 power_data, freq_data = simulate_power_spectrum(
-    gammas, amplitudes, dt=(86400.0 * tspans) / 1024
+    gammas, amplitudes, dt=(SECONDS_PER_DAY * tspans) / 1024
 )
 
 res = np.zeros((nsim, 100, 2 * 1024))
