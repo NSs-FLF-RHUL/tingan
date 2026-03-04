@@ -146,9 +146,8 @@ def simulate_power_spectrum(
         * np.power(f_1yr, gammas - 3)
         * np.power(freq, -gammas)
         * df
-    )
+    ) / 4.0
     power[0] = 0
-    power /= 4
     return power, freq
 
 
