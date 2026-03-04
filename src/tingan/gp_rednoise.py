@@ -115,7 +115,7 @@ def gaussian_pdf(data: list | np.ndarray) -> _continuous_distns:
 
 
 def simulate_power_spectrum(
-    gammas: np.ndarray,
+    gammas: np.ndarray | list,
     amplitudes: list | np.ndarray,
     nreal: int = 100,
     npoints: int = 1024,
@@ -134,8 +134,7 @@ def simulate_power_spectrum(
         dt = np.ndarray([dt]).reshape(1, -1)
     except TypeError:
         contextlib.suppress(TypeError)
-    if type(gammas) is list:
-        gammas = np.array(gammas)
+    gammas = np.array(gammas)
     n = nreal * npoints
     freq = np.array(np.fft.rfftfreq(n)).reshape(-1, 1) / dt
     freq = np.array(freq)
