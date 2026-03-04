@@ -2,21 +2,21 @@
 
 ## Development Workflow
 
-The deepSKA development workflow follows [github-flow](https://scottchacon.com/2011/08/31/github-flow):
+The tingan development workflow follows [github-flow](https://scottchacon.com/2011/08/31/github-flow):
 
 - The `main` branch is kept clean and is always functional.  
   Any code development branches off (with a `git branch`), and eventually merges back into, the `main` branch.
   Core developers have write access, allowing them to open new branches in this repository for their development.
   External contributors should [use forks](https://docs.github.com/en/get-started/exploring-projects-on-github/contributing-to-a-project) instead.
   These instructions assume repo access, but their workflow applies to contributions via forks as well.
-- Any code development you would like to contribute has to relate to a [GitHub issue](https://github.com/NSs-FLF-RHUL/deepSKA/issues).  
+- Any code development you would like to contribute has to relate to a [GitHub issue](https://github.com/NSs-FLF-RHUL/tingan/issues).  
   If an issue does not exist for the feature or bug-fix you want to work on, please open a new issue, using the appropriate template.
 - Clone this repo locally to work on your code changes.
 - Create a branch off `main`, descriptively named, ideally starting with the issue number, and switch to it:
 
 ```bash
 $ pwd
-/path/to/your/clone/of/deepSKA
+/path/to/your/clone/of/tingan
 $ git status
 On branch main
 
@@ -61,7 +61,7 @@ For reference, those are
 
 - If adding a new function or class, add appropriate tests.
 - All tests, existing or new, should pass.
-  You should strive to run the tests locally before you open the PR, in order to catch errors early, but the Github Actions automation on the deepSKA repo will run them automatically as well when you open a PR.
+  You should strive to run the tests locally before you open the PR, in order to catch errors early, but the Github Actions automation on the tingan repo will run them automatically as well when you open a PR.
 - Update the documentation and make sure it builds and looks right.
 - Add examples and/or tutorials if you added more substantial functionality.
 - One approving code review by one of the requested reviewers.

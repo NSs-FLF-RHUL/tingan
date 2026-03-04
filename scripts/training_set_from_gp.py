@@ -6,9 +6,9 @@ import numpy as np
 
 from tingan.gp_rednoise import (
     SECONDS_PER_DAY,
+    gaussian_dist,
     gaussian_kde_1d,
     gaussian_kde_2d,
-    gaussian_pdf,
     load_gammas_and_amplitudes,
     marginalize_2d_kde,
     simulate_noise_from_power_spectrum,
@@ -48,8 +48,8 @@ gammas, amplitudes, tstart, tspans, resid, time = load_gammas_and_amplitudes(
 kde_2d, x, y = gaussian_kde_2d(gammas, amplitudes)
 kde_gammas = marginalize_2d_kde(kde_2d, 0, x[:, 0])
 kde_amplitudes = marginalize_2d_kde(kde_2d, 1, y[0, :])
-gauss_gammas = gaussian_pdf(gammas).pdf(x[:, 0])
-gauss_amplitudes = gaussian_pdf(amplitudes).pdf(y[0, :])
+gauss_gammas = gaussian_dist(gammas).pdf(x[:, 0])
+gauss_amplitudes = gaussian_dist(amplitudes).pdf(y[0, :])
 
 if plot:
     fig, axes = plt.subplots(2, 2, figsize=(8, 6))
@@ -107,8 +107,8 @@ if plot:
     plt.show()
 
 rng = np.random.default_rng()
-gammas_sim = gaussian_pdf(gammas).rvs(nsim)
-amplitudes_sim = gaussian_pdf(amplitudes).rvs(nsim)
+gammas_sim = gaussian_dist(gammas).rvs(nsim)
+amplitudes_sim = gaussian_dist(amplitudes).rvs(nsim)
 tstart_sim = rng.uniform(tstart.min(), tstart.max(), nsim)
 tspans_sim = rng.uniform(tspans.min(), tspans.max(), nsim)
 

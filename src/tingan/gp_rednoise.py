@@ -57,6 +57,7 @@ def load_gammas_and_amplitudes(psrs: Iterator[Path]) -> tuple:
         dat_y_no_f2 -= np.polyval(p, dat_t)
         resid.append(dat_y_no_f2)
         time.append(dat_t)
+    i += 1
     return gammas[:i], amplitudes[:i], tstart[:i], tspans[:i], resid[:i], time[:i]
 
 
@@ -105,7 +106,7 @@ def marginalize_2d_kde(kde: np.ndarray, dim: int, data: np.ndarray) -> np.ndarra
     return kde_pdf
 
 
-def gaussian_pdf(data: list | np.ndarray) -> _continuous_distns:
+def gaussian_dist(data: list | np.ndarray) -> _continuous_distns:
     """
     Return a Gaussian distribution with same mean and standard deviation as data.
 
