@@ -1,8 +1,15 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from tingan import gp_rednoise as gp
+
+
+@pytest.fixture
+def rng(seed: int = 0) -> np.random.Generator:
+    """Set the RNG for the entire test suite."""
+    return np.random.default_rng(seed)
 
 
 def test_load_gammas_and_amplitudes() -> None:
@@ -25,9 +32,9 @@ def test_marginalize_2d_kde_with_ones() -> None:
     assert np.allclose(kde_pdf, 10 * [1.0])
 
 
-def test_marginalize_2d_kde_with_rand() -> None:
+def test_marginalize_2d_kde_with_rand(rng: np.random.Generator) -> None:
     """Marginalize a distribution that is already 1D."""
-    kde = np.random.default_rng().random(size=(1, 10))
+    kde = rng.random(size=(1, 10))
     data = np.linspace(0, 1, 10)
     kde_pdf = gp.marginalize_2d_kde(kde, 1, data)
     assert np.isclose(np.std(kde[0][::-1] / kde_pdf), 0.0)
