@@ -1,3 +1,4 @@
+import argparse
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -14,11 +15,33 @@ from tingan.gp_rednoise import (
     simulate_power_spectrum,
 )
 
-save = False
-plot = True
-nsim = 100
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "-p", "--plot", default=True, help="Create plots when running script."
+)
+parser.add_argument(
+    "-n", "--nsim", type=int, nargs=1, default=100, help="Number of simulations to run."
+)
+parser.add_argument(
+    "-s", "--save", type=str, nargs=1, help="Save location for generated data."
+)
+parser.add_argument(
+    "-d",
+    "--data",
+    type=str,
+    nargs=1,
+    default="/home/jberteaud/Science/EOS/tingan/data/real/",
+    help="Read location for real data.",
+)
 
-psrs = Path("/home/jberteaud/Science/EOS/tingan/data/real/").glob("[JB]*")
+args = parser.parse_args()
+
+# If you want to then re-scope the original variables you were using
+save_location = Path(args.save[0]) if args.save else None
+nsim = args.nsim
+plot = args.plot
+
+psrs = Path(args.data).glob("[JB]*")
 gammas, amplitudes, tstart, tspans, resid, time = load_gammas_and_amplitudes(
     psrs,
 )
@@ -100,7 +123,7 @@ power_data, freq_data = simulate_power_spectrum(
 
 res = np.zeros((nsim, 100, 2 * 1024))
 
-if save or plot:
+if save_location is not None or plot:
     for i in range(nsim):
         t = tstart_sim[i] + np.linspace(0, tspans_sim[i], 1024)
         for j in range(100):
@@ -110,11 +133,8 @@ if save or plot:
             res[i, j, :1024] = t
             res[i, j, 1024:] = s
 
-    if save:
-        np.save(
-            "/home/jberteaud/Science/EOS/tingan/data/simulated/gp_simulated_rednoise.npy",
-            res.reshape((100 * nsim, 2 * 1024)),
-        )
+    if save_location is not None:
+        np.save(save_location, res.reshape((100 * nsim, 2 * 1024)))
 
     if plot:
         for i in range(min(nsim, 500)):
