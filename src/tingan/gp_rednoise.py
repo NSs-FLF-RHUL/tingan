@@ -157,7 +157,7 @@ def simulate_noise_from_power_spectrum(
     freq: list | np.ndarray,
     nreal: int = 100,
     npoints: int = 1024,
-) -> list:
+) -> list[np.ndarray]:
     """
     Simulate noise from power spectra through a Gaussian process.
 
