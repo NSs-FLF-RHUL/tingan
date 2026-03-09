@@ -8,7 +8,7 @@ def fake_pulsar_data(
     data_dir: Path, *psr_params: dict[str, float | np.ndarray]
 ) -> tuple[Path, ...]:
     """
-    Create fake pulsar results, the directories in which the fake results reside.
+    Create fake pulsar results, returning the directories in which they reside.
 
     Each entry in `psr_params` should be a dictionary that provides the following
     keys (value type given in brackets):
