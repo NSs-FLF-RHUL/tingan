@@ -43,6 +43,7 @@ def test_fake_pulsars_files(
     fake_pulsars[1] = {key: 2 * value for key, value in fake_pulsars[1].items()}
     subdirs_created = fake_pulsar_data(tmp_path, *fake_pulsars)
 
+    expected_keys: tuple[str, ...]  # mypy things
     if file == "model_params.json":
         expected_keys = (
             "TNRedGam",
