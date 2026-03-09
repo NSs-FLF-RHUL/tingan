@@ -19,7 +19,9 @@ def test_fake_pulsars_subdirs(
 
     assert len(subdirs_created) == n_pulsars
     for i in range(n_pulsars):
-        assert tmp_path / f"psr-{i}" in subdirs_created
+        expected_path = tmp_path / f"psr-{i}"
+        assert expected_path in subdirs_created
+        assert expected_path.exists()
 
 
 def test_fake_pulsars_model_params(
