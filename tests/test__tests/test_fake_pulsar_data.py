@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import pytest
@@ -24,65 +25,52 @@ def test_fake_pulsars_subdirs(
         assert expected_path.exists()
 
 
-def test_fake_pulsars_model_params(
+@pytest.mark.parametrize("file", ["model_params.json", "residuals.npz"])
+def test_fake_pulsars_files(
     tmp_path: Path,
     n_boring_pulsars,
+    file: Literal["model_params.json", "residuals.npz"],
     n_pulsars: int = 2,
-    expected_param_keys: tuple[str, ...] = (
-        "TNRedGam",
-        "TNRedAmp",
-        "F2",
-        "F0",
-        "pepoch",
-    ),
 ) -> None:
-    """Test that fake_pulsar_data correctly writes model parameters."""
+    """
+    Test that fake_pulsar_data creates files with the expected structure.
+
+    Also confirms that the pulsars are saved in the order / directory structure
+    that is to be expected.
+    """
     fake_pulsars = list(n_boring_pulsars(n_pulsars))
     # Change data values in 2nd pulsar entry so we can distinguish later
     fake_pulsars[1] = {key: 2 * value for key, value in fake_pulsars[1].items()}
-
     subdirs_created = fake_pulsar_data(tmp_path, *fake_pulsars)
 
-    for i, subdir in enumerate(subdirs_created):
-        model_params_file = subdir / "model_params.json"
-        assert model_params_file.exists()
+    if file == "model_params.json":
+        expected_keys = (
+            "TNRedGam",
+            "TNRedAmp",
+            "F2",
+            "F0",
+            "pepoch",
+        )
 
-        with Path.open(model_params_file) as f:
-            saved_data: dict = json.load(f)
+        def load_saved_data(f: Path) -> dict:
+            with Path.open(f) as ff:
+                return json.load(ff)
+    else:
+        expected_keys = ("mjd", "residual")
+        load_saved_data = np.load
+
+    for i, subdir in enumerate(subdirs_created):
+        results_file = subdir / file
+        assert results_file.exists()
+
+        saved_data: dict = load_saved_data(results_file)
 
         # All model parameter keys are present
-        assert set(expected_param_keys).issubset(set(saved_data.keys()))
+        assert set(expected_keys).issubset(set(saved_data.keys()))
         # Correct values were saved
         expected_data_dumped = fake_pulsars[i]
         for key, value in saved_data.items():
-            assert value == expected_data_dumped[key]
-
-
-def test_fake_pulsars_npz_file(
-    tmp_path: Path,
-    n_boring_pulsars,
-    n_pulsars: int = 2,
-    expected_npz_arrays: tuple[str, ...] = ("mjd", "residual"),
-) -> None:
-    """Test that fake_pulsar_data correctly writes residuals.npz."""
-    fake_pulsars = list(n_boring_pulsars(n_pulsars))
-    # Change data values in 2nd pulsar entry so we can distinguish later
-    fake_pulsars[1] = {key: 2 * value for key, value in fake_pulsars[1].items()}
-
-    subdirs_created = fake_pulsar_data(tmp_path, *fake_pulsars)
-
-    for i, subdir in enumerate(subdirs_created):
-        residuals_file = subdir / "residuals.npz"
-        assert residuals_file.exists()
-
-        saved_data: dict = np.load(residuals_file)
-
-        # All model parameter keys are present
-        assert set(expected_npz_arrays).issubset(set(saved_data.keys()))
-        # Correct values were saved
-        expected_data_dumped = fake_pulsars[i]
-        for key, array in saved_data.items():
-            assert np.allclose(array, expected_data_dumped[key])
+            assert np.allclose(value, expected_data_dumped[key])
 
 
 @pytest.mark.parametrize(
