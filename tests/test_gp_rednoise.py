@@ -3,18 +3,20 @@ from pathlib import Path
 import numpy as np
 
 from tingan import gp_rednoise as gp
+from tingan._tests.fake_data import fake_pulsar_data
 
 
-def test_load_gammas_and_amplitudes() -> None:
+def test_load_gammas_and_amplitudes(
+    tmp_path: Path,
+    n_boring_pulsars,
+    expected_n_pulsars: int = 21,
+) -> None:
     """Test that the correct number of parameters are loaded."""
-    # I know this is specific to my machine, but I got a bug with npsrs when passing
-    # psrs as a function argument. __sizeof__() used to return the number of pulsars,
-    # 21, but inside the function it returms 32. So I just want to make sure I loaded
-    # data for the correct number of pulsars.
-    psrs = Path("/home/jberteaud/Science/EOS/tingan/data/real/").glob("[JB]*")
-    gammas, *_ = gp.load_gammas_and_amplitudes(psrs)
-    number_of_psrs_on_my_machine = 21
-    assert len(gammas) == number_of_psrs_on_my_machine
+    created_pulsars = n_boring_pulsars(expected_n_pulsars)
+    fake_pulsar_dirs = fake_pulsar_data(tmp_path, *created_pulsars)
+
+    gammas, *_ = gp.load_gammas_and_amplitudes(fake_pulsar_dirs)
+    assert len(gammas) == expected_n_pulsars
 
 
 def test_marginalize_2d_kde_with_ones() -> None:
