@@ -41,7 +41,7 @@ save_location = Path(args.save[0]) if args.save else None
 nsim = args.nsim
 plot = args.plot
 
-psrs = Path(args.data).glob("[JB]*")
+psrs = tuple(Path(args.data).glob("[JB]*"))
 gammas, amplitudes, tstart, tspans, resid, time = load_gammas_and_amplitudes(
     psrs,
 )

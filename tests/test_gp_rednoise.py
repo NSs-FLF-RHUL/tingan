@@ -18,7 +18,7 @@ def test_load_gammas_and_amplitudes() -> None:
     # psrs as a function argument. __sizeof__() used to return the number of pulsars,
     # 21, but inside the function it returms 32. So I just want to make sure I loaded
     # data for the correct number of pulsars.
-    psrs = Path("/home/jberteaud/Science/EOS/tingan/data/real/").glob("[JB]*")
+    psrs = tuple(Path("/home/jberteaud/Science/EOS/tingan/data/real/").glob("[JB]*"))
     gammas, *_ = gp.load_gammas_and_amplitudes(psrs)
     number_of_psrs_on_my_machine = 21
     assert len(gammas) == number_of_psrs_on_my_machine
