@@ -74,18 +74,22 @@ def gaussian_kde_1d(data: list | np.ndarray, size: int = 100) -> np.ndarray:
 
 
 def gaussian_kde_2d(
-    data_x: list | np.ndarray, data_y: list | np.ndarray, size: int = 100
+    data_x: list | np.ndarray,
+    data_y: list | np.ndarray,
+    size: int = 100,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Fit a 2D PDF using gaussian kernel.
 
     :param data_x: data to fit along first dimension.
     :param data_y: data to fit along second dimension.
-    :param size: number of points to evaluate the PDF at, per dimension.
+    :param size: size of each output dimension.
     """
-    x, y = np.mgrid[
-        np.min(data_x) : np.max(data_x) : size, np.min(data_y) : np.max(data_y) : size
-    ]
+    x, y = np.meshgrid(
+        np.linspace(np.min(data_x), np.max(data_x), size),
+        np.linspace(np.min(data_y), np.max(data_y), size),
+        indexing="ij",
+    )
     positions = np.vstack([x.ravel(), y.ravel()])
     data = np.vstack([data_x, data_y])
     kernel = gaussian_kde(data)
