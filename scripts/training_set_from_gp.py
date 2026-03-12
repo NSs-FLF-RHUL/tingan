@@ -20,7 +20,12 @@ parser.add_argument(
     "-p", "--plot", default=True, help="Create plots when running script."
 )
 parser.add_argument(
-    "-n", "--nsim", type=int, nargs=1, default=100, help="Number of simulations to run."
+    "-n",
+    "--nsim",
+    type=int,
+    nargs=1,
+    default=(100,),
+    help="Number of simulations to run.",
 )
 parser.add_argument(
     "-s", "--save", type=str, nargs=1, help="Save location for generated data."
@@ -30,18 +35,16 @@ parser.add_argument(
     "--data",
     type=str,
     nargs=1,
-    default="/home/jberteaud/Science/EOS/tingan/data/real/",
+    default=("/home/jberteaud/Science/EOS/tingan/data/real/",),
     help="Read location for real data.",
 )
-
 args = parser.parse_args()
-
 # If you want to then re-scope the original variables you were using
 save_location = Path(args.save[0]) if args.save else None
-nsim = args.nsim
+nsim = args.nsim[0]
 plot = args.plot
 
-psrs = tuple(Path(args.data).glob("[JB]*"))
+psrs = tuple(Path(args.data[0]).glob("[JB]*"))
 gammas, amplitudes, tstart, tspans, resid, time = load_gammas_and_amplitudes(
     psrs,
 )
