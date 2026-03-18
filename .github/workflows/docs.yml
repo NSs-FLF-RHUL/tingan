@@ -24,7 +24,6 @@ jobs:
         name: (Non-pull request) Checkout repository to get commit history
         if: ${{ github.event_name != 'pull_request' }}
 
-
       - uses: dorny/paths-filter@v4
         id: filter
         with:
