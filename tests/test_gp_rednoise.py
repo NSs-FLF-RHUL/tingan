@@ -4,8 +4,20 @@ import numpy as np
 import pytest
 
 from tingan import gp_rednoise as gp
+from tingan._tests.fake_data import fake_pulsar_data
 
 
+def test_load_gammas_and_amplitudes(
+    tmp_path: Path,
+    n_boring_pulsars,
+    expected_n_pulsars: int = 21,
+) -> None:
+    """Test that the correct number of parameters are loaded."""
+    created_pulsars = n_boring_pulsars(expected_n_pulsars)
+    fake_pulsar_dirs = fake_pulsar_data(tmp_path, *created_pulsars)
+
+    gammas, *_ = gp.load_gammas_and_amplitudes(fake_pulsar_dirs)
+    assert len(gammas) == expected_n_pulsars
 @pytest.fixture
 def rng(seed: int = 0) -> np.random.Generator:
     """Set the RNG for the entire test suite."""
