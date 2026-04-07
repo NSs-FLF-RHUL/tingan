@@ -8,7 +8,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Typing :: Typed",
 ]
-dependencies = ["torch", "numpy", "matplotlib", "pyyaml"]
+dependencies = ["torch", "numpy", "matplotlib", "pyyaml", "scipy"]
 description = "A realistic pulsar timing noise simulator." # description of what the package provides / does
 dynamic = ["version"]
 keywords = []
@@ -62,9 +62,12 @@ lint.ignore = [
   "ISC001", # simplify implicit str concatenation (ruff-format recommended)
 ]
 lint.per-file-ignores = { "tests*" = [
+  "ANN001", # Missing type annotation for argument
   "D100",   # Missing docstring in public module
   "D401",   # 1st line should be imperative
   "INP001", # File is part of an implicit namespace package.
+  "PLR0913",# Too many arguments to function.
+  "PT028",  # Test function has default value
   "S101",   # Use of `assert` detected
 ], "scripts*" = [
   "D100",   # Missing docstring in public module
