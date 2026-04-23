@@ -14,6 +14,7 @@ from tingan.gp_rednoise import (
     simulate_noise_from_power_spectrum,
     simulate_power_spectrum,
 )
+from tingan.utils import bin_min_max, load_latex_table
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -54,6 +55,18 @@ kde_amplitudes = marginalize_2d_kde(kde_2d, 1, y[0, :])
 gauss_gammas = gaussian_dist(gammas).pdf(x[:, 0])
 gauss_amplitudes = gaussian_dist(amplitudes).pdf(y[0, :])
 
+t1, e1 = load_latex_table("/home/jberteaud/Science/EOS/tingan/data/real/table1.txt")
+t3, e3 = load_latex_table("/home/jberteaud/Science/EOS/tingan/data/real/table3.txt")
+
+psr_names, idx1, idx3 = np.intersect1d(t1[:, 0], t3[:, 0], return_indices=True)
+t1, t3 = t1[idx1, :], t3[idx3, :]
+
+amp_arthasarathy = t3[:, 3].astype(float)
+gam_arthasarathy = -t3[:, 4].astype(float)  # use same definition for spectral index
+
+bin_g = bin_min_max((gammas, gam_arthasarathy), nbins=5)
+bin_a = bin_min_max((amplitudes, amp_arthasarathy), nbins=5)
+
 if plot:
     fig, axes = plt.subplots(2, 2, figsize=(8, 6))
     axes = axes.ravel()
@@ -65,6 +78,7 @@ if plot:
         cmap="Blues",
     )
     ax.plot(gammas, amplitudes, "o", color="tab:orange")
+    ax.plot(gam_arthasarathy, amp_arthasarathy, ".", color="tab:purple")
     ax.set_xlim([np.min(gammas), np.max(gammas)])
     ax.set_ylim([np.min(amplitudes), np.max(amplitudes)])
     ax.set_xlabel(r"$\gamma$")
@@ -75,7 +89,20 @@ if plot:
 
     ax = axes[1]
     ax.hist(
-        gammas, bins=5, density=True, label="Samples", color="tab:orange", alpha=0.5
+        gammas,
+        bins=bin_g,
+        density=True,
+        label="Samples",
+        color="tab:orange",
+        alpha=0.5,
+    )
+    ax.hist(
+        gam_arthasarathy,
+        bins=bin_g,
+        density=True,
+        label="Samples",
+        color="tab:purple",
+        histtype="step",
     )
     ax.plot(x[:, 0], kde_gammas, label="Marginalized 2D KDE", color="tab:blue", ls="--")
     ax.plot(x[:, 0], gaussian_kde_1d(gammas), label="1D KDE", color="tab:blue", ls=":")
@@ -91,11 +118,20 @@ if plot:
     ax = axes[2]
     ax.hist(
         amplitudes,
-        bins=5,
+        bins=bin_a,
         density=True,
         orientation="horizontal",
         color="tab:orange",
         alpha=0.5,
+    )
+    ax.hist(
+        amp_arthasarathy,
+        bins=bin_a,
+        density=True,
+        label="Samples",
+        color="tab:purple",
+        histtype="step",
+        orientation="horizontal",
     )
     ax.plot(kde_amplitudes, y[0, ::-1], color="tab:blue", ls="--")
     ax.plot(gaussian_kde_1d(amplitudes), y[0, :], color="tab:blue", ls=":")
