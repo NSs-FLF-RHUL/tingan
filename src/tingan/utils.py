@@ -23,6 +23,7 @@ def load_latex_table(texfile: str) -> tuple:
                 .replace("\\", "")
                 .replace("{", "")
                 .replace("}", "")
+                .replace("--", "-")
                 .replace("$", "")
             )
             if "(" in tij and ")" in tij and ":" not in tij:
