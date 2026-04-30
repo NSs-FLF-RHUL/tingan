@@ -1,6 +1,7 @@
 """Some useful functions for data manipulation and analysis."""
 
 import numpy as np
+from scipy.stats import _continuous_distns, laplace, norm
 
 
 def load_latex_table(texfile: str) -> tuple:
@@ -60,3 +61,21 @@ def bin_min_max(arrays: tuple, nbins: int = 10) -> np.ndarray:
     """
     array = np.concatenate(arrays).flatten()
     return np.linspace(np.nanmin(array), np.nanmax(array), nbins + 1)
+
+
+def gaussian_dist(data: list | np.ndarray) -> _continuous_distns:
+    """
+    Return a Gaussian distribution with same mean and standard deviation as data.
+
+    :param data: data to mimic.
+    """
+    return norm(loc=np.mean(data), scale=np.std(data))
+
+
+def laplace_dist(data: list | np.ndarray) -> _continuous_distns:
+    """
+    Return a Gaussian distribution with same mean and standard deviation as data.
+
+    :param data: data to mimic.
+    """
+    return laplace(loc=np.mean(data), scale=np.std(data))

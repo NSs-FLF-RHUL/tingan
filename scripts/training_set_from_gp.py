@@ -6,7 +6,6 @@ import numpy as np
 
 from tingan.gp_rednoise import (
     SECONDS_PER_DAY,
-    gaussian_dist,
     gaussian_kde_1d,
     gaussian_kde_2d,
     load_gammas_and_amplitudes,
@@ -14,7 +13,7 @@ from tingan.gp_rednoise import (
     simulate_noise_from_power_spectrum,
     simulate_power_spectrum,
 )
-from tingan.utils import bin_min_max, load_latex_table
+from tingan.utils import bin_min_max, gaussian_dist, load_latex_table
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
