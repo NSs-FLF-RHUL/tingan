@@ -7,10 +7,14 @@ from tingan import gp_rednoise as gp
 from tingan._tests.fake_data import fake_pulsar_data
 
 
+@pytest.mark.parametrize(
+    "expected_n_pulsars",
+    [pytest.param(21, id="Some pulsars"), pytest.param(0, id="No pulsars")],
+)
 def test_load_gammas_and_amplitudes(
     tmp_path: Path,
     n_boring_pulsars,
-    expected_n_pulsars: int = 21,
+    expected_n_pulsars: int,
 ) -> None:
     """Test that the correct number of parameters are loaded."""
     created_pulsars = n_boring_pulsars(expected_n_pulsars)
