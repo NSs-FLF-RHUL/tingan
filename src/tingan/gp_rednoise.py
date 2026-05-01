@@ -56,8 +56,8 @@ def load_gammas_and_amplitudes(psrs: tuple) -> tuple:
         dat_y_no_f2 -= np.polyval(p, dat_t)
         resid.append(dat_y_no_f2)
         time.append(dat_t)
-    i += 1
-    return gammas[:i], amplitudes[:i], tstart[:i], tspans[:i], resid[:i], time[:i]
+
+    return gammas, amplitudes, tstart, tspans, resid, time
 
 
 def gaussian_kde_1d(data: list | np.ndarray, size: int = 100) -> np.ndarray:
