@@ -8,7 +8,7 @@ import tingan.datasets
 
 
 def plot_timing_noise(
-    d: tingan.datasets.RealTimingNoise,
+    d: tingan.datasets.RealTimingNoise | tingan.datasets.TimingNoise,
     tin: np.ndarray | torch.Tensor,
     tin_type: str = "",
     fig: plt.Figure = None,
