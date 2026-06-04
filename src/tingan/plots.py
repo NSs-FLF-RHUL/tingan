@@ -4,23 +4,56 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
+import tingan.datasets
+
 
 def plot_timing_noise(
-    tin: list | np.ndarray | torch.Tensor, tin_type: str = ""
-) -> plt.Figure:
+    d: tingan.datasets.RealTimingNoise,
+    tin: np.ndarray | torch.Tensor,
+    tin_type: str = "",
+    fig: plt.Figure = None,
+    ax: np.ndarray = None,
+) -> tuple[plt.Figure, np.ndarray]:
     """
     Plot several examples of timing noise.
 
     :param tin: a set of timing noise examples.
     :param tin_type: type of timing noise.
+    :param fig: figure to update.
+    :param ax: flattened array of axes to update.
+    :param d: dataset to plot.
+
+    :return: tuple of figure and axes.
     """
-    fig, ax = plt.subplots(nrows=5, ncols=3, figsize=(10, 10))
-    ax = ax.flatten()
+    two = 2
+    if fig is None or ax is None:
+        fig, ax = plt.subplots(nrows=5, ncols=3, figsize=(10, 10))
+        ax = ax.flatten()
     for i in range(15):
-        ax[i].plot(tin[i])
+        if len(tin[i].shape) == two:
+            if d.ic:
+                ax[i].plot(np.cumsum(tin[i, 0] * d.mjds_std + d.mjds_mean), tin[i, 1])
+                ax[i].secondary_xaxis(
+                    "top",
+                    (
+                        lambda x: (x - d.mjds_mean) / d.mjds_std,
+                        lambda x: x * d.mjds_std + d.mjds_mean,
+                    ),
+                )
+            else:
+                ax[i].plot(tin[i, 0] * d.mjds_std + d.mjds_mean, tin[i, 1])
+                ax[i].secondary_xaxis(
+                    "top",
+                    (
+                        lambda x: (x - d.mjds_mean) / d.mjds_std,
+                        lambda x: x * d.mjds_std + d.mjds_mean,
+                    ),
+                )
+        else:
+            ax[i].plot(tin[i])
     fig.suptitle(tin_type + " noise")
     fig.tight_layout()
-    return fig
+    return fig, ax
 
 
 def plot_timing_noise_properties(noises: list | tuple) -> plt.Figure:
