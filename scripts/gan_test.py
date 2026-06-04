@@ -1,5 +1,6 @@
 """Basic GAN test case."""
 
+import argparse
 import random
 from enum import Enum
 from pathlib import Path
@@ -10,12 +11,22 @@ import torch.utils.data
 import yaml
 from torch import nn, optim
 
-from tingan.datasets import TimingNoise
+from tingan.datasets import RealTimingNoise, TimingNoise
 from tingan.networks import Discriminator, Generator
 from tingan.plots import plot_losses, plot_timing_noise, plot_timing_noise_properties
 
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "-c",
+    "--config",
+    default="configs/basic_test_config.yaml",
+    help="Path to run configuration file.",
+)
+parser.add_argument("-i", "--ic", default=False, type=bool)
+args = parser.parse_args()
+
 # Variables
-with Path("configs/basic_test_config.yaml").open("r") as stream:
+with Path(args.config).open("r") as stream:
     config = yaml.safe_load(stream)
 
 
@@ -36,17 +47,22 @@ if config["manualSeed"] is not None:
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Create the dataloader
-dataset = TimingNoise(config["train_size"])
+if args.config == "configs/basic_test_config.yaml":
+    dataset = TimingNoise(config["train_size"])
+    input_noise = torch.randn(config["batch_size"], config["nz"], device=device)
+else:
+    dataset = RealTimingNoise(ic=args.ic)
+    input_noise = torch.randn(config["batch_size"], 2, config["nz"], device=device)
 dataloader = torch.utils.data.DataLoader(
     dataset,
     batch_size=config["batch_size"],
-    shuffle=True,
+    shuffle=False,
     num_workers=config["workers"],
 )
 
 # Plot some training data
 real_batch = next(iter(dataloader))
-train_noise_plot = plot_timing_noise(real_batch, tin_type="Training")
+train_noise_plot = plot_timing_noise(dataset, real_batch, tin_type="Training")
 
 # Create the generator
 netg = Generator(nz=config["nz"]).to(device)
@@ -59,26 +75,51 @@ criterion = nn.BCELoss()
 
 # Create batch of latent vectors that we will use to visualize
 #  the progression of the generator
-input_noise = torch.randn(config["batch_size"], config["nz"], device=device)
 untrained_noise = netg(input_noise)
 
-input_output_before_training = np.zeros((128, 64, 2))
-input_output_before_training[:, :, 0] = input_noise.detach().cpu().numpy()
-input_output_before_training[:, :, 1] = untrained_noise.detach().cpu().numpy()
+if args.config == "configs/basic_test_config.yaml":
+    input_output_before_training = np.zeros((config["batch_size"], config["nz"], 2))
+    input_output_before_training[:, :, 0] = input_noise.detach().cpu().numpy()
+    input_output_before_training[:, :, 1] = untrained_noise.detach().cpu().numpy()
+else:
+    input_output_before_training = np.zeros((config["batch_size"], config["nz"], 4))
+    input_output_before_training[:, :, :2] = (
+        input_noise.detach()
+        .cpu()
+        .numpy()
+        .reshape((config["batch_size"], config["nz"], 2))
+    )  # [:,:2,:]
+    input_output_before_training[:, :, 2:] = (
+        untrained_noise.detach()
+        .cpu()
+        .numpy()
+        .reshape((config["batch_size"], config["nz"], 2))
+    )  # [:,0,:]
 
-noise_plot = plot_timing_noise(
-    input_output_before_training, tin_type="Input and output (before training)"
+noise_plot, ax = plot_timing_noise(
+    dataset,
+    input_noise.detach().cpu().numpy(),
+    tin_type="Input and output (before training)",
 )
-noise_prop_plot = plot_timing_noise_properties(
-    (
-        real_batch.detach().cpu().numpy(),
-        input_noise.detach().cpu().numpy(),
-        untrained_noise.detach().cpu().numpy(),
+noise_plot, ax = plot_timing_noise(
+    dataset,
+    untrained_noise.detach().cpu().numpy(),
+    tin_type="Input and output (before training)",
+    fig=noise_plot,
+    ax=ax,
+)
+
+if args.config == "configs/basic_test_config.yaml":
+    noise_prop_plot = plot_timing_noise_properties(
+        (
+            real_batch.detach().cpu().numpy(),
+            input_noise.detach().cpu().numpy(),
+            untrained_noise.detach().cpu().numpy(),
+        )
     )
-)
-noise_prop_plot.show()
+    noise_prop_plot.show()
 
-for fig in [train_noise_plot, noise_plot, noise_prop_plot]:
+for fig in [train_noise_plot[0], noise_plot]:
     fig.show()
 
 # Setup Adam optimizers for both G and D
@@ -159,10 +200,12 @@ for epoch in range(config["num_epochs"]):
         if i % 50 == 0:
             print(
                 f"[{epoch:d}/{config['num_epochs']:d}]][{i:d}/{len(dataloader):d}]]"
-                f"\tLoss_D: {errd.item():.4f}"
-                f"\tLoss_G: {errg.item():.4f}"
-                f"\tD(x): {d_x:.4f}"
-                f"\tD(G(z)): {d_g_z1:.4f} / {d_g_z2:.4f}"
+                f"\tLoss_D: {errd.item():.4f}"  # discriminator's loss
+                f"\tLoss_G: {errg.item():.4f}"  # generator's loss
+                f"\tD(x): {d_x:.4f}"  # mean output value of discriminator on real data,
+                # should be close to 0.5
+                f"\tD(G(z)): {d_g_z1:.4f} / {d_g_z2:.4f}"  # same but on fake data,
+                # before and after network update
             )
 
         # Save Losses for plotting later
@@ -175,16 +218,18 @@ for epoch in range(config["num_epochs"]):
         ):
             with torch.no_grad():
                 fake = netg(input_noise).detach().cpu().numpy()
+                print(fake.shape)
             noise_list.append(fake)
 
         iters += 1
 
 loss_plot = plot_losses(g_losses, d_losses)
-noise_plot = plot_timing_noise(noise_list[-1], tin_type="Trained")
-noise_prop_plot = plot_timing_noise_properties(
-    (real_batch.detach().cpu().numpy(), noise_list[-1])
-)
+noise_plot = plot_timing_noise(dataset, noise_list[-1], tin_type="Trained")
+if args.config == "configs/basic_test_config.yaml":
+    noise_prop_plot = plot_timing_noise_properties(
+        (real_batch.detach().cpu().numpy(), noise_list[-1])
+    )
 
-for fig in [loss_plot, noise_plot, noise_prop_plot]:
+for fig in [loss_plot, noise_plot[0]]:
     fig.show()
 plt.show()
