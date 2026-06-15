@@ -60,15 +60,19 @@ def load_gammas_and_amplitudes(psrs: tuple) -> tuple:
     return gammas[:i], amplitudes[:i], tstart[:i], tspans[:i], resid[:i], time[:i]
 
 
-def gaussian_kde_1d(data: list | np.ndarray, size: int = 100) -> np.ndarray:
+def gaussian_kde_1d(
+    data: list | np.ndarray, size: int | None = 100
+) -> np.ndarray | gaussian_kde:
     """
     Fit a 1D PDF using gaussian kernel.
 
     :param data: data to fit.
     :param size: number of points to evaluate the PDF at.
     """
-    x = np.linspace(np.min(data), np.max(data), size)
     kernel = gaussian_kde(data)
+    if size is None:
+        return kernel
+    x = np.linspace(np.min(data), np.max(data), size)
     return kernel(x)
 
 
