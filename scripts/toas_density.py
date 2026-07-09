@@ -39,8 +39,6 @@ for _, psr in enumerate(Path(args.data_path).glob("[J,B]*")):
     for d in m[1:][breaks]:
         ax.axvline(d)
 
-    print(100 * len(m) / (time_span * f0), delta.max(), delta.mean())
-
 plt.show()
 
 print(len(slopes), np.sum(np.array(slopes) > 0))
