@@ -30,13 +30,18 @@ for _, psr in enumerate(Path(args.data_path).glob("[J,B]*")):
     slopes.append(res.slope)
     breaks = delta > 3 * np.median(delta)
 
-    plt.plot(m[1:], delta, ".")
-    plt.plot(m[1:], m[1:] * res.slope + res.intercept)
-    plt.axhline(3 * np.median(delta))
+    fig, ax = plt.subplots()  # create new figure canvas / reference
+    ax.plot(m[1:], delta, ".")  # you can use ax wherever you were using plt before,
+    # to apply changes to the axes referenced by ax
+    ax.plot(m[1:], delta, ".")
+    ax.plot(m[1:], m[1:] * res.slope + res.intercept)
+    ax.axhline(3 * np.median(delta))
     for d in m[1:][breaks]:
-        plt.axvline(d)
-    plt.show()
+        ax.axvline(d)
+
     print(100 * len(m) / (time_span * f0), delta.max(), delta.mean())
+
+plt.show()
 
 print(len(slopes), np.sum(np.array(slopes) > 0))
 plt.hist(slopes)
