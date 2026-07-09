@@ -74,7 +74,7 @@ def gaussian_dist(data: list | np.ndarray) -> _continuous_distns:
 
 def laplace_dist(data: list | np.ndarray) -> _continuous_distns:
     """
-    Return a Gaussian distribution with same mean and standard deviation as data.
+    Return a Laplace distribution with same location and scale parameter as data.
 
     :param data: data to mimic.
     """
