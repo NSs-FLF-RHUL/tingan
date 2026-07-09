@@ -39,7 +39,7 @@ class RealTimingNoise(torch.utils.data.Dataset):
         self,
         data_path: str = "/home/jberteaud/Science/EOS/tingan/data/real/",
         *,
-        ic: bool = False,
+        use_inverse_cumsum: bool = False,
     ) -> None:
         """Initialize the dataset."""
         min_length = np.inf
@@ -78,7 +78,7 @@ class RealTimingNoise(torch.utils.data.Dataset):
         ii = ~np.any(mjds == 0, axis=1)
         mjds = mjds[ii]
         resids = resids[ii]
-        if ic:
+        if use_inverse_cumsum:
             mjds[:, 1:] -= mjds[:, :-1].copy()  # inverse cumsum
         self.mjds_mean = mjds.mean()
         self.mjds_std = mjds.std()
@@ -87,7 +87,7 @@ class RealTimingNoise(torch.utils.data.Dataset):
 
         self.mjds = torch.Tensor(np.concatenate((mjds, -mjds[:, ::-1])))
         self.resids = torch.Tensor(np.concatenate((resids, resids[:, ::-1])))
-        self.ic = ic
+        self.ic = use_inverse_cumsum
 
     def __getitem__(self, index: int) -> torch.Tensor:
         """Get an item from the dataset."""
