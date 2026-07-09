@@ -1,3 +1,4 @@
+import argparse
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -6,10 +7,18 @@ from scipy.stats import linregress
 
 from tingan.datasets import load_model_parameters, load_residuals
 
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "-d",
+    "--data_path",
+    default="/home/jberteaud/Science/EOS/tingan/data/real/",
+    help="Path to data directory",
+)
+args = parser.parse_args()
+
 slopes = []
 
-data_path = "/home/jberteaud/Science/EOS/tingan/data/real/"
-for _, psr in enumerate(Path(data_path).glob("[J,B]*")):
+for _, psr in enumerate(Path(args.data_path).glob("[J,B]*")):
     model_parameters = load_model_parameters(f"{psr}/model_params.json")
     m, r, _ = load_residuals(str(psr / Path("residuals.npz")))
     f0, f1 = model_parameters["F0"], model_parameters["F1"]
