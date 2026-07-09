@@ -51,7 +51,7 @@ if args.config == "configs/basic_test_config.yaml":
     dataset = TimingNoise(config["train_size"])
     input_noise = torch.randn(config["batch_size"], config["nz"], device=device)
 else:
-    dataset = RealTimingNoise(ic=args.ic)
+    dataset = RealTimingNoise(use_inverse_cumsum=args.ic)
     input_noise = torch.randn(config["batch_size"], 2, config["nz"], device=device)
 dataloader = torch.utils.data.DataLoader(
     dataset,
