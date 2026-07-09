@@ -18,10 +18,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "-pe", default=61206.0, help="Pulsar spin period reference epoch [MJD]."
 )
-parser.add_argument("-p0", default=1.0, help="Pulsar spin period [s].")
-parser.add_argument("-p1", default=-1e-16, help="Pulsar spin period derivative [s/s].")
+parser.add_argument("-p0", default=1.0, help="Pulsar spin frequency [Hz].")
+parser.add_argument("-p1", default=-1e-16, help="Pulsar spin frequency derivative.")
 parser.add_argument(
-    "-p2", default=-1e-30, help="Pulsar spin period second derivative [s/s**2]."
+    "-p2", default=-1e-30, help="Pulsar spin frequency second derivative."
 )
 parser.add_argument("-amp", default=-12.0, help="Red noise amplitude.")
 parser.add_argument("-gam", default=5.0, help="Red noise index.")
@@ -43,7 +43,7 @@ par_sim = f"""
 m = get_model(StringIO(par_sim))
 
 par_sim = f"""
-    PSR           MOCK
+    PSR           MOCK2
     PEPOCH        {args.pe}
     F0            {args.p0}     1
     F1            {args.p1}     1
@@ -114,19 +114,29 @@ t1 = make_fake_toas_uniform(
     add_correlated_noise=True,
 )
 
+t2 = make_fake_toas_uniform(
+    resid["mjd"].min(),
+    resid["mjd"].max(),
+    len(errors_sim),
+    m_no_tn,
+    error=errors_sim * u.s,
+    add_noise=True,
+)
+
 plt.figure(figsize=(10, 6))
 plt.title(f"{args.psr}")
 plt.xlabel("MJD")
 plt.ylabel("Residual (seconds)")
 plt.grid(visible=True)
 
-for mm in [m, m_no_tn]:
-    print(mm)
-    rs = Residuals(t1, mm)
-    mjd_times = t1.get_mjds()
-    time_residuals = rs.time_resids.value  # Gets residuals in seconds
-    print(time_residuals)
-    plt.errorbar(mjd_times, time_residuals, yerr=t1.get_errors().to("s").value, fmt="x")
+for mm in [m]:  # , m_no_tn]:
+    for tt in [t1, t2]:
+        rs = Residuals(tt, mm)
+        mjd_times = tt.get_mjds()
+        time_residuals = rs.time_resids.value  # Gets residuals in seconds
+        plt.errorbar(
+            mjd_times, time_residuals, yerr=tt.get_errors().to("s").value, fmt="x"
+        )
 
 plt.show()
 
@@ -139,4 +149,7 @@ y = t1.get_pulse_numbers()
 print(y[:3])
 
 plt.hist(x - y)
+plt.show()
+
+plt.hist((t1.get_mjds() - t2.get_mjds()) * 86400)
 plt.show()
