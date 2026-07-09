@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import linregress
 
-from tingan.datasets import load_model_parameters, load_residuals
+from tingan.datasets import load_json, load_residuals
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -19,7 +19,7 @@ args = parser.parse_args()
 slopes = []
 
 for _, psr in enumerate(Path(args.data_path).glob("[J,B]*")):
-    model_parameters = load_model_parameters(f"{psr}/model_params.json")
+    model_parameters = load_json(f"{psr}/model_params.json")
     m, r, _ = load_residuals(str(psr / Path("residuals.npz")))
     f0, f1 = model_parameters["F0"], model_parameters["F1"]
     mjd_min, mjd_max = m.min(), m.max()
