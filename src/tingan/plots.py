@@ -26,9 +26,11 @@ def plot_timing_noise(
     :return: tuple of figure and axes.
     """
     two = 2
-    if fig is None or ax is None:
+    if fig is None and ax is None:
         fig, ax = plt.subplots(nrows=5, ncols=3, figsize=(10, 10))
         ax = ax.flatten()
+    elif fig is None:
+        fig = ax[0].get_figure()
     for i in range(15):
         if len(tin[i].shape) == two:
             if d.ic:
