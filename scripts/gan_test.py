@@ -77,10 +77,31 @@ criterion = nn.BCELoss()
 #  the progression of the generator
 untrained_noise = netg(input_noise)
 
+noise_plot, ax = plot_timing_noise(
+    dataset,
+    input_noise.detach().cpu().numpy(),
+    tin_type="Input and output (before training)",
+)
+noise_plot, ax = plot_timing_noise(
+    dataset,
+    untrained_noise.detach().cpu().numpy(),
+    tin_type="Input and output (before training)",
+    fig=noise_plot,
+    ax=ax,
+)
+
 if args.config == "configs/basic_test_config.yaml":
     input_output_before_training = np.zeros((config["batch_size"], config["nz"], 2))
     input_output_before_training[:, :, 0] = input_noise.detach().cpu().numpy()
     input_output_before_training[:, :, 1] = untrained_noise.detach().cpu().numpy()
+    noise_prop_plot = plot_timing_noise_properties(
+        (
+            real_batch.detach().cpu().numpy(),
+            input_noise.detach().cpu().numpy(),
+            untrained_noise.detach().cpu().numpy(),
+        )
+    )
+    noise_prop_plot.show()
 else:
     input_output_before_training = np.zeros((config["batch_size"], config["nz"], 4))
     input_output_before_training[:, :, :2] = (
@@ -96,28 +117,6 @@ else:
         .reshape((config["batch_size"], config["nz"], 2))
     )  # [:,0,:]
 
-noise_plot, ax = plot_timing_noise(
-    dataset,
-    input_noise.detach().cpu().numpy(),
-    tin_type="Input and output (before training)",
-)
-noise_plot, ax = plot_timing_noise(
-    dataset,
-    untrained_noise.detach().cpu().numpy(),
-    tin_type="Input and output (before training)",
-    fig=noise_plot,
-    ax=ax,
-)
-
-if args.config == "configs/basic_test_config.yaml":
-    noise_prop_plot = plot_timing_noise_properties(
-        (
-            real_batch.detach().cpu().numpy(),
-            input_noise.detach().cpu().numpy(),
-            untrained_noise.detach().cpu().numpy(),
-        )
-    )
-    noise_prop_plot.show()
 
 for fig in [train_noise_plot[0], noise_plot]:
     fig.show()
