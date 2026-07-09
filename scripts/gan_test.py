@@ -218,7 +218,6 @@ for epoch in range(config["num_epochs"]):
         ):
             with torch.no_grad():
                 fake = netg(input_noise).detach().cpu().numpy()
-                print(fake.shape)
             noise_list.append(fake)
 
         iters += 1
