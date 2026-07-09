@@ -32,7 +32,7 @@ def plot_timing_noise(
     elif fig is None:
         fig = ax[0].get_figure()
     for i in range(15):
-        if len(tin[i].shape) == two:
+        if tin[i].ndim == two:
             if d.ic:
                 ax[i].plot(np.cumsum(tin[i, 0] * d.mjds_std + d.mjds_mean), tin[i, 1])
                 ax[i].secondary_xaxis(
