@@ -47,9 +47,9 @@ class RealTimingNoise(torch.utils.data.Dataset):
         mjds, resids = np.zeros((10000, 10000)), np.zeros((10000, 10000))
         i = 0
         for i, psr in enumerate(Path(data_path).glob("[J,B]*")):
-            m, r, _ = load_residuals(str(psr / Path("/residuals.npz")))
+            m, r, _ = load_residuals(str(psr / Path("residuals.npz")))
             if not (sorted(m) != m).any():
-                b, nwav = load_rednoise_model(str(psr / "/tempo2_fit_info.npz"))
+                b, nwav = load_rednoise_model(str(psr / "tempo2_fit_info.npz"))
                 h, epoch = load_harmonic_series(f"{psr}/model_params.json", nwav, m)
                 local_length = len(m)
                 mjds[i, :local_length] = m
