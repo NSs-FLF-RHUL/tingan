@@ -39,7 +39,12 @@ def load_residuals(path: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 
 def load_rednoise_model(path: str) -> tuple[np.ndarray, int]:
-    """Load red noise model decomposition."""
+    """
+    Load red noise model decomposition.
+
+    param path: path to red noise model
+    return: Fourier coefficients and number of components of the red noise model,
+    """
     tempo2_fit_info = np.load(path)
     lab, val = (
         tempo2_fit_info["lab"],
