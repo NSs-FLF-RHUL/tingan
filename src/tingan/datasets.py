@@ -136,7 +136,7 @@ def load_harmonic_series(
     path: str, nwav: int, data_mjd: np.ndarray
 ) -> tuple[np.ndarray, float]:
     """Load harmonic series decomposition from file and build it."""
-    model_params = load_model_parameters(path)
+    model_params = load_json(path)
     reference_epoch_for_gp_model_subtraction = model_params[
         "epoch"
     ]  # Reference epoch for GP model subtraction in MJD
@@ -177,7 +177,7 @@ def load_harmonic_series(
     return harmonic_sercies_matrix_data_spacing.T, model_params["epoch"]
 
 
-def load_model_parameters(path: str) -> dict:
+def load_json(path: str) -> dict:
     """Load model parameters from file."""
     with Path(path).open() as file:
         return json.load(file)
