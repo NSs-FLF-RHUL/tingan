@@ -40,54 +40,68 @@ class RealTimingNoise(torch.utils.data.Dataset):
         data_path: str = "/home/jberteaud/Science/EOS/tingan/data/real/",
         *,
         use_inverse_cumsum: bool = False,
+        augment: bool = True,
     ) -> None:
-        """Initialize the dataset."""
-        min_length = np.inf
-        max_length = 0
-        mjds, resids = np.zeros((10000, 10000)), np.zeros((10000, 10000))
-        i = 0
-        for i, psr in enumerate(Path(data_path).glob("[J,B]*")):
+        """
+        Initialize the real timing dataset.
+
+        Each dataset element is a couple of (MJDs, residuals). The neural network
+        requires these elements to have the same length, so we first identify the
+        lenght of the smallest dataset element and chop longer elements into
+        chunks of this size. The original dataset can be augmented.
+        """
+        self.min_length = 10000
+        self.max_length = 0
+        self.ic = use_inverse_cumsum
+
+        self.mjds, self.resids = np.zeros((10000, 10000)), np.zeros((10000, 10000))
+        i_psr = 0
+        for i_psr, psr in enumerate(Path(data_path).glob("[J,B]*")):
             m, r, _ = load_residuals(str(psr / Path("residuals.npz")))
             if not (sorted(m) != m).any():
                 b, nwav = load_rednoise_model(str(psr / "tempo2_fit_info.npz"))
                 h, epoch = load_harmonic_series(f"{psr}/model_params.json", nwav, m)
-                local_length = len(m)
-                mjds[i, :local_length] = m
-                resids[i, :local_length] = r - h.dot(b)
-                resids[i, :local_length] -= resids[i, :local_length].mean()
-                min_length = min(min_length, local_length)
-                max_length = max(max_length, local_length)
-        n = (10000 // min_length) * min_length
-        i += 1
-        mjds, resids = mjds[:i], resids[:i]
-        mjds, resids = mjds[:, :n], resids[:, :n]
-        mjds2, resids2 = (
-            np.copy(mjds)[:, min_length // 2 : -(min_length - min_length // 2)],
-            np.copy(resids)[:, min_length // 2 : -(min_length - min_length // 2)],
-        )
-        mjds = np.hstack((mjds, mjds2))
-        resids = np.hstack((resids, resids2))
-        mjds, resids = (
-            mjds.reshape((len(mjds), -1, int(min_length))),
-            resids.reshape((len(mjds), -1, int(min_length))),
-        )
-        mjds, resids = (
-            mjds.reshape((-1, int(min_length))),
-            resids.reshape((-1, int(min_length))),
-        )
-        ii = ~np.any(mjds == 0, axis=1)
-        mjds = mjds[ii]
-        resids = resids[ii]
-        if use_inverse_cumsum:
-            mjds[:, 1:] -= mjds[:, :-1].copy()  # inverse cumsum
-        self.mjds_mean = mjds.mean()
-        self.mjds_std = mjds.std()
-        mjds = np.array((mjds - self.mjds_mean) / self.mjds_std)
-        resids = np.array(resids)
+                local_length = len(m)  # data size for current pulsar
+                self.mjds[i_psr, :local_length] = m  # fill MJDs
+                self.resids[i_psr, :local_length] = r - h.dot(b)  # fill residuals
+                self.resids[i_psr, :local_length] -= self.resids[
+                    i_psr, :local_length
+                ].mean()  # subtact mean
+                self.min_length = min(
+                    self.min_length, local_length
+                )  # update min_length
+                self.max_length = max(
+                    self.max_length, local_length
+                )  # update max_length
 
-        self.mjds = torch.Tensor(np.concatenate((mjds, -mjds[:, ::-1])))
-        self.resids = torch.Tensor(np.concatenate((resids, resids[:, ::-1])))
-        self.ic = use_inverse_cumsum
+        # Largest integer multiple of min_length smaller than 10000
+        n = int((10000 // self.min_length) * self.min_length)
+
+        # Truncate arrays along first dimension at last pulsar
+        self.mjds, self.resids = self.mjds[: i_psr + 1], self.resids[: i_psr + 1]
+        # Truncate arrays along second dimension at largest multiple of min_length
+        self.mjds, self.resids = self.mjds[:, :n], self.resids[:, :n]
+        if augment:
+            self.mjds, self.resids = self.shift_and_merge()
+        # Divide arrays in smaller chunks of size min_length
+        self.mjds, self.resids = (
+            self.mjds.reshape((len(self.mjds), -1, int(self.min_length))),
+            self.resids.reshape((len(self.mjds), -1, int(self.min_length))),
+        )
+        self.mjds, self.resids = (
+            self.mjds.reshape((-1, int(self.min_length))),
+            self.resids.reshape((-1, int(self.min_length))),
+        )
+
+        self.exclude_chunks_with_zeros()
+
+        if use_inverse_cumsum:
+            self.mjds[:, 1:] -= self.mjds[:, :-1].copy()
+        self.mjds = np.array((self.mjds - self.mjds_mean) / self.mjds_std)
+        self.resids = np.array(self.resids)
+
+        if augment:
+            self.mjds, self.resids = self.reverse_and_merge()
 
     def __getitem__(self, index: int) -> torch.Tensor:
         """Get an item from the dataset."""
@@ -99,6 +113,40 @@ class RealTimingNoise(torch.utils.data.Dataset):
     def __len__(self) -> int:
         """Get the length of the dataset."""
         return len(self.resids)
+
+    def exclude_chunks_with_zeros(self) -> None:
+        """Exclude the shortest time-series."""
+        i_zeros = ~np.any(self.mjds == 0, axis=1)
+        self.mjds = self.mjds[i_zeros]
+        self.resids = self.resids[i_zeros]
+
+    def shift_and_merge(self) -> tuple[np.ndarray, np.ndarray]:
+        """Shift and merge the dataset."""
+        mjds2, resids2 = (
+            np.copy(self.mjds)[
+                :, self.min_length // 2 : -(self.min_length - self.min_length // 2)
+            ],
+            np.copy(self.resids)[
+                :, self.min_length // 2 : -(self.min_length - self.min_length // 2)
+            ],
+        )
+        return np.hstack((self.mjds, mjds2)), np.hstack((self.resids, resids2))
+
+    def reverse_and_merge(self) -> tuple[torch.Tensor, torch.Tensor]:
+        """Reverse and merge the dataset."""
+        return torch.Tensor(
+            np.concatenate((self.mjds, -self.mjds[:, ::-1]))
+        ), torch.Tensor(np.concatenate((self.resids, self.resids[:, ::-1])))
+
+    @property
+    def mjds_mean(self) -> float:
+        """Compute the mean of the MJDs of the dataset."""
+        return float(self.mjds.mean())
+
+    @property
+    def mjds_std(self) -> float:
+        """Compute the standard deviation of the MJDs of the dataset."""
+        return float(self.mjds.std())
 
 
 def load_residuals(path: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -178,6 +226,6 @@ def load_harmonic_series(
 
 
 def load_json(path: str) -> dict:
-    """Load model parameters from file."""
+    """Load JSON file."""
     with Path(path).open() as file:
         return json.load(file)
