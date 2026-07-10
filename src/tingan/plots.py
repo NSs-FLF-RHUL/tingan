@@ -28,6 +28,9 @@ def plot_timing_noise(
     if fig is None and ax is None:
         fig, ax = plt.subplots(nrows=5, ncols=3, figsize=(10, 10))
         ax = ax.flatten()
+    elif ax:
+        no_ax_error_msg = "No axes provided."
+        raise ValueError(no_ax_error_msg)
     elif fig is None:
         fig = ax[0].get_figure()
     for i in range(15):
