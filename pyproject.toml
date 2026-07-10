@@ -60,6 +60,7 @@ lint.ignore = [
   "D407",   # removed dashes lines under sections
   "D417",   # argument description in docstring (unreliable)
   "ISC001", # simplify implicit str concatenation (ruff-format recommended)
+  "PLR2004", # magic values
 ]
 lint.per-file-ignores = { "tests*" = [
   "ANN001", # Missing type annotation for argument

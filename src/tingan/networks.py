@@ -61,4 +61,7 @@ class Discriminator(torch.nn.Module):
 
     def forward(self, noise: torch.Tensor) -> torch.Tensor:
         """Forward pass."""
-        return self.main(noise)
+        d = self.main(noise)
+        if len(d.shape) == 3:
+            d = torch.mean(d, dim=(1, 2))
+        return d
