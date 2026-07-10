@@ -25,14 +25,13 @@ def plot_timing_noise(
 
     :return: tuple of figure and axes.
     """
-    two = 2
     if fig is None and ax is None:
         fig, ax = plt.subplots(nrows=5, ncols=3, figsize=(10, 10))
         ax = ax.flatten()
     elif fig is None:
         fig = ax[0].get_figure()
     for i in range(15):
-        if tin[i].ndim == two:
+        if tin[i].ndim == 2:
             if d.ic:
                 ax[i].plot(np.cumsum(tin[i, 0] * d.mjds_std + d.mjds_mean), tin[i, 1])
                 ax[i].secondary_xaxis(
