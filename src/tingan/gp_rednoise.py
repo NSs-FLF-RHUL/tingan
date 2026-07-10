@@ -12,7 +12,7 @@ from pathlib import Path
 
 import numpy as np
 from scipy.integrate import simpson
-from scipy.stats import _continuous_distns, gaussian_kde, norm
+from scipy.stats import gaussian_kde
 
 SECONDS_PER_DAY = 86400.0
 F_1YR = 1 / (365.25 * SECONDS_PER_DAY)  # in per second
@@ -107,15 +107,6 @@ def marginalize_2d_kde(kde: np.ndarray, dim: int, data: np.ndarray) -> np.ndarra
     kde_pdf = np.sum(np.rot90(kde), axis=dim)
     kde_pdf /= simpson(kde_pdf, data)
     return kde_pdf
-
-
-def gaussian_dist(data: list | np.ndarray) -> _continuous_distns:
-    """
-    Return a Gaussian distribution with same mean and standard deviation as data.
-
-    :param data: data to mimic.
-    """
-    return norm(loc=np.mean(data), scale=np.std(data))
 
 
 def simulate_power_spectrum(
