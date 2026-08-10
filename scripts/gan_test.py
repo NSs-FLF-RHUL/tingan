@@ -62,7 +62,8 @@ dataloader = torch.utils.data.DataLoader(
 
 # Plot some training data
 real_batch = next(iter(dataloader))
-train_noise_plot = plot_timing_noise(dataset, real_batch, tin_type="Training")
+train_noise_plot, _ = plot_timing_noise(dataset, real_batch)
+train_noise_plot.suptitle("Training noise")
 
 # Create the generator
 netg = Generator(nz=config["nz"]).to(device)
@@ -80,15 +81,14 @@ untrained_noise = netg(input_noise)
 noise_plot, ax = plot_timing_noise(
     dataset,
     input_noise.detach().cpu().numpy(),
-    tin_type="Input and output (before training)",
 )
 noise_plot, ax = plot_timing_noise(
     dataset,
     untrained_noise.detach().cpu().numpy(),
-    tin_type="Input and output (before training)",
     fig=noise_plot,
     ax=ax,
 )
+noise_plot.suptitle("Input and output (before training) noise")
 
 if args.config == "configs/basic_test_config.yaml":
     input_output_before_training = np.zeros((config["batch_size"], config["nz"], 2))
@@ -118,7 +118,7 @@ else:
     )  # [:,0,:]
 
 
-for fig in [train_noise_plot[0], noise_plot]:
+for fig in [train_noise_plot, noise_plot]:
     fig.show()
 
 # Setup Adam optimizers for both G and D
@@ -222,12 +222,13 @@ for epoch in range(config["num_epochs"]):
         iters += 1
 
 loss_plot = plot_losses(g_losses, d_losses)
-noise_plot = plot_timing_noise(dataset, noise_list[-1], tin_type="Trained")
+noise_plot, _ = plot_timing_noise(dataset, noise_list[-1])
+noise_plot.suptitle("Trained noise")
 if args.config == "configs/basic_test_config.yaml":
     noise_prop_plot = plot_timing_noise_properties(
         (real_batch.detach().cpu().numpy(), noise_list[-1])
     )
 
-for fig in [loss_plot, noise_plot[0]]:
+for fig in [loss_plot, noise_plot]:
     fig.show()
 plt.show()
