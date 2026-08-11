@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import torch
 from accelerate import Accelerator, DistributedDataParallelKwargs
 from timellm.data_provider.data_factory import data_provider
@@ -17,8 +18,14 @@ from timellm.utils.tools import (
 )
 from tqdm import tqdm
 
+from tingan.datasets import partim_to_timellm_format, split_tim_and_par_files
 from tingan.networks import TimeSeriesDiscriminator, trainable_parameters
-from tingan.plots import plot_labels, plot_losses, plot_timing_noise
+from tingan.plots import (
+    plot_labels,
+    plot_losses,
+    plot_timellm_residuals,
+    plot_timing_noise,
+)
 
 # Setting some environment variables and random seed, from Time-LLM original scripts
 os.environ["CURL_CA_BUNDLE"] = ""
@@ -80,6 +87,27 @@ setting = (
     f"eb{args.embed}_"
     f"{args.des}"
 )
+
+path_data = Path(args.root_path) / Path(args.data_path)
+if not path_data.exists():
+    n = split_tim_and_par_files(
+        path_data.with_suffix(".tim"), path_data.with_suffix(".par")
+    )
+    [*_, prefix, _] = args.data_path.split(".")
+    dfs = []
+    for i in range(n):
+        j = i if i < 10 else i + 1
+        dfs.append(
+            partim_to_timellm_format(
+                Path(args.root_path) / Path(f"{prefix}_{j}").with_suffix(".par"),
+                Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".tim"),
+            )
+        )
+    frame = pd.concat(dfs, axis=0, ignore_index=True)
+    frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
+
+fig_timellm_residuals = plot_timellm_residuals(path_data)
+fig_timellm_residuals.savefig(path_data.with_suffix(".png"))
 
 # Creating training, validation and test datasets
 train_data, train_loader = data_provider(args, "train")
