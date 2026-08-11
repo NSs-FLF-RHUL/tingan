@@ -1,8 +1,12 @@
 """tingan's plots."""
 
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
+from astropy.time import Time
 
 import tingan.datasets
 
@@ -141,5 +145,22 @@ def plot_labels(
     ax.legend()
     ax.set_xlabel("Iteration")
     ax.set_ylabel("Label")
+    fig.tight_layout()
+    return fig
+
+
+def plot_timellm_residuals(file: Path) -> plt.Figure:
+    """
+    Plot residuals stored in a file in timellm-compatible format.
+
+    :param file: path to timellm file.
+    """
+    fig, ax = plt.subplots(figsize=(10, 5))
+    data = pd.read_csv(file)
+    ndates = len(data["date"])
+    dates = np.ones(ndates) * np.nan
+    for i in range(ndates):
+        dates[i] = Time(data["date"][i], format="isot").jd
+    ax.plot(dates, data["resid_s"])
     fig.tight_layout()
     return fig
