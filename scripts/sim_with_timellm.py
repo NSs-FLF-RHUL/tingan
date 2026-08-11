@@ -36,7 +36,7 @@ random.seed(fix_seed)
 torch.manual_seed(fix_seed)
 
 # Loading configuration
-with Path("test.json").open() as f:
+with Path("timellm_config.json").open() as f:
     t_args = argparse.Namespace()
     t_args.__dict__.update(json.load(f))
 parser = argparse.ArgumentParser()
