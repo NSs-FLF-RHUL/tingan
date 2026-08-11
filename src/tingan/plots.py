@@ -160,7 +160,9 @@ def plot_timellm_residuals(file: Path) -> plt.Figure:
     ndates = len(data["date"])
     dates = np.ones(ndates) * np.nan
     for i in range(ndates):
-        dates[i] = Time(data["date"][i], format="isot").jd
+        dates[i] = Time(data["date"][i], format="isot").mjd
     ax.plot(dates, data["resid_s"])
+    ax.set_xlabel("MJD")
+    ax.set_ylabel("Residuals [s]")
     fig.tight_layout()
     return fig
