@@ -185,7 +185,9 @@ for epoch in range(args.train_epochs):
 
         f_dim = -1 if args.features == "MS" else 0
         outputs = outputs[:, -args.pred_len :, f_dim:]
-        batch_y_pred = batch_y[:, -args.pred_len :, f_dim:]
+        batch_y_pred = (
+            batch_y[:, -args.pred_len :, f_dim:].float().to(accelerator.device)
+        )
 
         # =========================================================
         #  TRAIN DISCRIMINATOR
