@@ -83,13 +83,13 @@ def laplace_dist(data: list | np.ndarray) -> _continuous_distns:
     return laplace(loc=np.mean(data), scale=np.std(data))
 
 
-def split_file_at_string(file: str, string: str) -> int:
+def split_file_at_string(file: Path, string: str) -> int:
     """
     Split a file at given string.
 
     Useful to reverse concatenation of several files that start with the same string.
 
-    :param file: file name
+    :param file: path to file
     :param string: string indicating the beginning of a chunk
     :return: number of chunk founds
     """
