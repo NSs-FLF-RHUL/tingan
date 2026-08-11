@@ -284,7 +284,7 @@ for epoch in range(args.train_epochs):
         f"G_adv: {loss_adv.item():.7f}"
     )
 
-    early_stopping(vali_loss, model, path, discriminator)
+    early_stopping(vali_loss, model, str(path), discriminator)
     if early_stopping.early_stop:
         accelerator.print("Early stopping")
         break
