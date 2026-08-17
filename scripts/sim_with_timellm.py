@@ -106,9 +106,6 @@ if not path_data.exists():
     frame = pd.concat(dfs, axis=0, ignore_index=True)
     frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
 
-fig_timellm_residuals = plot_timellm_residuals(path_data)
-fig_timellm_residuals.savefig(path_data.with_suffix(".png"))
-
 # Creating training, validation and test datasets
 train_data, train_loader = data_provider(args, "train")
 vali_data, vali_loader = data_provider(args, "val")
@@ -129,6 +126,13 @@ bce_loss = torch.nn.BCELoss()
 path = Path(args.checkpoints) / Path(setting + "-" + args.model_comment)
 if not path.exists() and accelerator.is_local_main_process:
     path.mkdir(parents=True)
+
+with (path / Path("timellm_config.json")).open("w") as f:
+    args_dict = json.dumps(vars(args))
+    json.dump(args_dict, f, indent=4)
+
+fig_timellm_residuals = plot_timellm_residuals(path_data)
+fig_timellm_residuals.savefig(path / Path("residuals.png"))
 
 train_steps = len(train_loader)
 early_stopping = EarlyStopping(
@@ -253,7 +257,7 @@ for epoch in range(args.train_epochs):
                     fig=fig,
                     ax=ax,
                 )
-                fig.savefig(f"outputs_epoch{epoch}_i{i}_new.pdf")
+                fig.savefig(path / Path(f"outputs_epoch{epoch}_i{i}.pdf"))
 
             torch.nn.utils.clip_grad_norm_(discriminator.parameters(), max_norm=1.0)
             discr_optim.step()
@@ -291,13 +295,9 @@ for epoch in range(args.train_epochs):
     vali_loss, vali_loss_d, vali_pred_lab, vali_true_lab = vali_pulsar(
         args, accelerator, model, discriminator, vali_data, vali_loader, bce_loss
     )
-    train_loss_g.append(vali_loss)
     train_loss_g.append(np.nan)
-    train_loss_d.append(vali_loss_d)
     train_loss_d.append(np.nan)
-    dlabels_for_real.append(vali_true_lab)
     dlabels_for_real.append(np.nan)
-    dlabels_for_mock.append(vali_pred_lab)
     dlabels_for_mock.append(np.nan)
     accelerator.print(
         f"Epoch: {epoch + 1} | Train Loss: {train_loss_g[-1]:.7f} "
@@ -337,6 +337,6 @@ for epoch in range(args.train_epochs):
 accelerator.wait_for_everyone()
 
 fig = plot_losses(train_loss_g, train_loss_d)
-fig.savefig("loss_new.pdf")
+fig.savefig(path / Path("loss.pdf"))
 fig = plot_labels(dlabels_for_real, dlabels_for_mock)
-fig.savefig("labels_new.pdf")
+fig.savefig(path / Path("labels.pdf"))
