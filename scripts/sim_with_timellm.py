@@ -61,9 +61,6 @@ if args.d_updates_epochs[0] != 0:
     d_err_msg = "d_updates_epochs should start from 0."
     raise ValueError(d_err_msg)
 
-args.d_updates_per_batch = args.d_updates_per_batch[::-1]
-args.d_updates_epochs = np.array(args.d_updates_epochs).astype(int)
-
 # Setting up distributed training and accelerator, from Time-LLM original scripts
 ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 accelerator = Accelerator(kwargs_handlers=[ddp_kwargs])
@@ -128,8 +125,11 @@ if not path.exists() and accelerator.is_local_main_process:
     path.mkdir(parents=True)
 
 with (path / Path("timellm_config.json")).open("w") as f:
-    args_dict = json.dumps(vars(args))
+    args_dict = vars(args)
     json.dump(args_dict, f, indent=4)
+
+args.d_updates_per_batch = args.d_updates_per_batch[::-1]
+args.d_updates_epochs = np.array(args.d_updates_epochs).astype(int)
 
 fig_timellm_residuals = plot_timellm_residuals(path_data)
 fig_timellm_residuals.savefig(path / Path("residuals.png"))
