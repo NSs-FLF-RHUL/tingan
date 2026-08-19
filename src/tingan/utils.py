@@ -99,7 +99,7 @@ def split_file_at_string(file: Path, string: str) -> int:
     with Path(file).open(mode="r") as rfile:
         while True:
             read_line = rfile.readline()
-            if not read_line or string in read_line:
+            if not read_line or string == read_line[: len(string)]:
                 if len(lines_to_write) > 0:
                     with (
                         Path(f"{prefix}_{n_files}")
