@@ -126,7 +126,11 @@ def plot_losses(
         np.isnan(discriminator_loss)
     ]
     if len(ig_epochs) != len(id_epochs):
-        len_err_msg = "Generator and discriminator epochs are different."
+        len_err_msg = (
+            f"Were the generator and the discriminator train adversarially? "
+            f"They seem to have been trained for a different number of "
+            f"epochs: {len(ig_epochs)} and {len(id_epochs)}."
+        )
         raise ValueError(len_err_msg)
     ig_epochs = np.concatenate(([0], ig_epochs)).astype(int)
     id_epochs = np.concatenate(([0], id_epochs + 1)).astype(int)
