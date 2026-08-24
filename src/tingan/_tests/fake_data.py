@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from tempfile import mkdtemp
 
 import numpy as np
 
@@ -78,3 +79,22 @@ def fake_pulsar_data(
             )
 
     return tuple(subdirs_created)
+
+
+def fake_concatenated_file(n_files: int, string: str = "PSR") -> Path:
+    """
+    Create a fake concatenated file, return path to the file.
+
+    The concatenated file created here mimics several files starting with the same
+    string having been concatenated.
+
+    :param n_files: Number of files to concatenate.
+    :param string: The string that indicates the begining of a file.
+    """
+    path = Path(mkdtemp())
+    path = path / f"concat_{string}.txt"
+    with path.open("w") as f:
+        for i in range(n_files):
+            f.write(string + "\n")
+            f.write(f"some random text: {i}\n")
+    return path
