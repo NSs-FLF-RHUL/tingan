@@ -1,6 +1,6 @@
 import json
-import os
 from pathlib import Path
+from tempfile import mkdtemp
 
 import numpy as np
 
@@ -91,9 +91,7 @@ def fake_concatenated_file(n_files: int, string: str = "PSR") -> Path:
     :param n_files: Number of files to concatenate.
     :param string: The string that indicates the begining of a file.
     """
-    temp_path = os.environ.get("RUNNER_TEMP")
-    path = Path(f"{temp_path}/data/fake/")
-    path.mkdir(parents=True, exist_ok=True)
+    path = Path(mkdtemp())
     path = path / f"concat_{string}.txt"
     with path.open("w") as f:
         for i in range(n_files):
