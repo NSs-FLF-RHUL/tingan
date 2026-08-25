@@ -328,6 +328,6 @@ for epoch in range(args.train_epochs):
 accelerator.wait_for_everyone()
 
 fig = plot_losses(train_loss_g, train_loss_d)
-fig.savefig(path / Path("loss.pdf"))
+fig.savefig(path / Path("loss.png"))
 fig = plot_labels(dlabels_for_real, dlabels_for_mock)
-fig.savefig(path / Path("labels.pdf"))
+fig.savefig(path / Path("labels.png"))
