@@ -14,6 +14,7 @@ from timellm.models import TimeLLM
 from timellm.utils.tools import (
     adjust_learning_rate,
     vali_pulsar,
+    create_checkpoint_dict,
 )
 from tqdm import tqdm
 
@@ -154,6 +155,18 @@ else:
         max_lr=args.learning_rate,
     )
 
+if (path / Path("generator.pth")).exists() and (path / Path("discriminator.pth")).exists():
+    print("Loading checkpoint...")
+    checkpoint_g = torch.load(path / Path("generator.pth"), weights_only=False)
+    checkpoint_d = torch.load(path / Path("discriminator.pth"), weights_only=False)
+    model.load_state_dict(checkpoint_g['model'])
+    discriminator.load_state_dict(checkpoint_d['model'])
+    start_epoch = checkpoint_g["epoch"] + 1
+    print("Done!")
+else:
+    print("Starting training from scratch.")
+    start_epoch = 0
+
 model, model_optim, scheduler = accelerator.prepare(model, model_optim, scheduler)
 discriminator, discr_optim = accelerator.prepare(discriminator, discr_optim)
 
@@ -165,7 +178,7 @@ vali_loss_d = []
 
 d_updates_per_batch = 1
 
-for epoch in range(args.train_epochs):
+for epoch in range(start_epoch, start_epoch + args.train_epochs):
     if epoch in args.d_updates_epochs:
         d_updates_per_batch = args.d_updates_per_batch.pop()
 
@@ -281,12 +294,6 @@ for epoch in range(args.train_epochs):
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         model_optim.step()
 
-        if args.lradj == "TST":
-            adjust_learning_rate(
-                accelerator, model_optim, scheduler, epoch + 1, args, printout=False
-            )
-            scheduler.step()
-
     accelerator.print(f"Epoch: {epoch + 1} cost time: {time.time() - epoch_time}")
     vali_loss, vali_loss_d, vali_pred_lab, vali_true_lab = vali_pulsar(
         args, accelerator, model, discriminator, vali_data, vali_loader, bce_loss
@@ -324,6 +331,11 @@ for epoch in range(args.train_epochs):
 
     else:
         accelerator.print(f"Updating learning rate to {scheduler.get_last_lr()[0]}")
+
+    check_dict_g = create_checkpoint_dict(model, train_loss_g[-1], epoch)
+    torch.save(check_dict_g, path / Path(f"generator_ep{epoch}.pth"))
+    check_dict_d = create_checkpoint_dict(discriminator, train_loss_g[-1], epoch)
+    torch.save(check_dict_d, path / Path(f"discriminator_ep{epoch}.pth"))
 
 accelerator.wait_for_everyone()
 
