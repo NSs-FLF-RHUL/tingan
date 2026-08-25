@@ -12,7 +12,6 @@ from accelerate import Accelerator, DistributedDataParallelKwargs
 from timellm.data_provider.data_factory import data_provider
 from timellm.models import TimeLLM
 from timellm.utils.tools import (
-    EarlyStopping,
     adjust_learning_rate,
     vali_pulsar,
 )
@@ -135,9 +134,6 @@ fig_timellm_residuals = plot_timellm_residuals(path_data)
 fig_timellm_residuals.savefig(path / Path("residuals.png"))
 
 train_steps = len(train_loader)
-early_stopping = EarlyStopping(
-    accelerator=accelerator, patience=args.patience, verbose=True
-)
 
 # Optimizers and schedulter
 model_optim = torch.optim.Adam(trainable_parameters(model), lr=args.learning_rate)
@@ -311,12 +307,6 @@ for epoch in range(args.train_epochs):
         f"D_loss_fake: {loss_d_fake.item():.7f} | "
         f"G_adv: {loss_adv.item():.7f}"
     )
-
-    early_stopping(vali_loss, model, path / Path("generator.pth"), model_optim, scheduler)
-    early_stopping(vali_loss, discriminator, path / Path("discriminator.pth"), discr_optim)
-    if early_stopping.early_stop:
-        accelerator.print("Early stopping")
-        break
 
     if args.lradj != "TST":
         if args.lradj == "COS":
