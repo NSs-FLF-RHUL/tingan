@@ -343,3 +343,6 @@ fig = plot_losses(train_loss_g, train_loss_d)
 fig.savefig(path / Path("loss.png"))
 fig = plot_labels(dlabels_for_real, dlabels_for_mock)
 fig.savefig(path / Path("labels.png"))
+
+torch.save(check_dict_g, path / Path(f"generator.pth"))
+torch.save(check_dict_d, path / Path(f"discriminator.pth"))
