@@ -15,6 +15,7 @@ from timellm.utils.tools import (
     adjust_learning_rate,
     vali_pulsar,
     create_checkpoint_dict,
+    load_content
 )
 from tqdm import tqdm
 
@@ -43,14 +44,6 @@ parser = argparse.ArgumentParser()
 args = parser.parse_args(namespace=t_args)
 
 # Checking configuration
-if args.model != "TimeLLM":
-    model_err_msg = "Model should be TimeLLM."
-    raise ValueError(model_err_msg)
-
-if args.use_amp:
-    use_amp_err_msg = "use_amp should be False."
-    raise ValueError(use_amp_err_msg)
-
 if len(args.d_updates_per_batch) != len(args.d_updates_epochs):
     len_err_msg = (
         "d_updates_per_batch and d_updates_epochs should have the same length."
@@ -61,28 +54,55 @@ if args.d_updates_epochs[0] != 0:
     d_err_msg = "d_updates_epochs should start from 0."
     raise ValueError(d_err_msg)
 
+if args.train_epochs < args.d_updates_epochs[-1]:
+    epochs_err_msg = f"train_epochs should be larger than last d_updates_epochs."
+    raise ValueError(epochs_err_msg)
+
+# Necessary parameters that should not be modified
+args.model = "TimeLLM"
+args.data = "Pulsar"
+args.llm_model = "LLAMA"
+args.llm_dim = 4096
+args.prompt_domain = True
+args.content = load_content(args)
+args.seasonal_patterns = None
+args.features = "S"
+args.percent = 100
+
 # Setting up distributed training and accelerator, from Time-LLM original scripts
 ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 accelerator = Accelerator(kwargs_handlers=[ddp_kwargs])
 
+d_updates_per_batch_str, d_updates_epochs_str = "", ""
+for i in range(len(args.d_updates_per_batch)):
+    d_updates_per_batch_str += f"{args.d_updates_per_batch[i]}-"
+    d_updates_epochs_str += f"{args.d_updates_epochs[i]}-"
+
 # Setting record of experiments
 setting = (
     f"{args.task_name}_"
-    f"{args.model_id}_"
     f"{args.model}_"
+    f"{args.llm_model}_"
     f"{args.data}_"
-    f"ft{args.features}_"
+    f"nr{args.nrows}_"
+    f"{d_updates_per_batch_str[:-1]}_"
+    f"{d_updates_epochs_str[:-1]}_"
+    f"bs{args.batch_size}_"
     f"sl{args.seq_len}_"
     f"ll{args.label_len}_"
     f"pl{args.pred_len}_"
+    f"ptl{args.patch_len}_"
+    f"ll{args.llm_layers}_"
+    f"do{args.dropout}_"
+    f"sd{args.stride}_"
+    f"lr{args.learning_rate}_"
+    f"{args.lradj}_"
+    f"ps{args.pct_start}_"
     f"dm{args.d_model}_"
     f"nh{args.n_heads}_"
-    f"el{args.e_layers}_"
-    f"dl{args.d_layers}_"
     f"df{args.d_ff}_"
-    f"fc{args.factor}_"
     f"eb{args.embed}_"
-    f"{args.des}"
+    f"ei{args.enc_in}"
 )
 
 path_data = Path(args.root_path) / Path(args.data_path)
@@ -120,7 +140,7 @@ fake_label = torch.full((1,), 0.0, device=accelerator.device)
 bce_loss = torch.nn.BCELoss()
 
 # Creating directory where results will be saved
-path = Path(args.checkpoints) / Path(setting + "-" + args.model_comment)
+path = Path(args.checkpoints) / Path(setting)
 if not path.exists() and accelerator.is_local_main_process:
     path.mkdir(parents=True)
 
@@ -209,15 +229,7 @@ for epoch in range(start_epoch, start_epoch + args.train_epochs):
         )
 
         # encoder - decoder
-        if args.output_attention:
-            outputs = model(
-                batch_x.float().to(accelerator.device),
-                batch_x_mark.float().to(accelerator.device),
-                dec_inp,
-                batch_y_mark.float().to(accelerator.device),
-            )[0]
-        else:
-            outputs = model(
+        outputs = model(
                 batch_x.float().to(accelerator.device),
                 batch_x_mark.float().to(accelerator.device),
                 dec_inp,
