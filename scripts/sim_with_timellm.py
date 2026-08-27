@@ -345,16 +345,16 @@ for epoch in range(start_epoch, start_epoch + args.train_epochs):
         accelerator.print(f"Updating learning rate to {scheduler.get_last_lr()[0]}")
 
     check_dict_g = create_checkpoint_dict(model, train_loss_g[-1], epoch)
-    torch.save(check_dict_g, path / Path(f"generator_ep{epoch}.pth"))
+    torch.save(check_dict_g, path / Path(f"generator_ep{epoch+1}.pth"))
     check_dict_d = create_checkpoint_dict(discriminator, train_loss_g[-1], epoch)
-    torch.save(check_dict_d, path / Path(f"discriminator_ep{epoch}.pth"))
+    torch.save(check_dict_d, path / Path(f"discriminator_ep{epoch+1}.pth"))
 
 accelerator.wait_for_everyone()
 
 fig = plot_losses(train_loss_g, train_loss_d)
-fig.savefig(path / Path("loss.png"))
+fig.savefig(path / Path(f"loss_ep{start_epoch+1}-{epoch+1}.png"))
 fig = plot_labels(dlabels_for_real, dlabels_for_mock)
-fig.savefig(path / Path("labels.png"))
+fig.savefig(path / Path(f"labels_ep{start_epoch+1}-{epoch+1}.png"))
 
 torch.save(check_dict_g, path / Path(f"generator.pth"))
 torch.save(check_dict_d, path / Path(f"discriminator.pth"))
