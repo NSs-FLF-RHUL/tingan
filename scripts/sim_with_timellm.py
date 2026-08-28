@@ -1,7 +1,6 @@
 import argparse
 import json
 import os
-import random
 import time
 from pathlib import Path
 
@@ -12,10 +11,9 @@ from accelerate import Accelerator, DistributedDataParallelKwargs
 from timellm.data_provider.data_factory import data_provider
 from timellm.models import TimeLLM
 from timellm.utils.tools import (
-    adjust_learning_rate,
-    vali_pulsar,
     create_checkpoint_dict,
-    load_content
+    load_content,
+    vali_pulsar,
 )
 from tqdm import tqdm
 
@@ -27,14 +25,14 @@ from tingan.plots import (
     plot_timellm_residuals,
     plot_timing_noise,
 )
+from tingan.utils import set_seed
 
 # Setting some environment variables and random seed, from Time-LLM original scripts
 os.environ["CURL_CA_BUNDLE"] = ""
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:64"
 
 fix_seed = 2026
-random.seed(fix_seed)
-torch.manual_seed(fix_seed)
+set_seed(fix_seed)
 
 # Loading configuration
 with Path("timellm_config.json").open() as f:
@@ -55,7 +53,7 @@ if args.d_updates_epochs[0] != 0:
     raise ValueError(d_err_msg)
 
 if args.train_epochs < args.d_updates_epochs[-1]:
-    epochs_err_msg = f"train_epochs should be larger than last d_updates_epochs."
+    epochs_err_msg = "train_epochs should be larger than last d_updates_epochs."
     raise ValueError(epochs_err_msg)
 
 # Necessary parameters that should not be modified
@@ -124,9 +122,9 @@ if not path_data.exists():
     frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
 
 # Creating training, validation and test datasets
-train_data, train_loader = data_provider(args, "train")
-vali_data, vali_loader = data_provider(args, "val")
-test_data, test_loader = data_provider(args, "test")
+train_data, train_loader = data_provider(args, "train", seed=fix_seed)
+vali_data, vali_loader = data_provider(args, "val", seed=fix_seed)
+test_data, test_loader = data_provider(args, "test", seed=fix_seed)
 
 # Creating generator and discriminator
 model = TimeLLM.Model(args).float()
@@ -162,32 +160,25 @@ discr_optim = torch.optim.Adam(
     trainable_parameters(discriminator), lr=1e-4, betas=(0.5, 0.999)
 )
 
-if args.lradj == "COS":
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        model_optim, T_max=20, eta_min=1e-8
-    )
-else:
-    scheduler = torch.optim.lr_scheduler.OneCycleLR(
-        optimizer=model_optim,
-        steps_per_epoch=train_steps,
-        pct_start=args.pct_start,
-        epochs=args.train_epochs,
-        max_lr=args.learning_rate,
-    )
-
-if (path / Path("generator.pth")).exists() and (path / Path("discriminator.pth")).exists():
+if (path / Path("generator.pth")).exists() and (
+    path / Path("discriminator.pth")
+).exists():
     print("Loading checkpoint...")
     checkpoint_g = torch.load(path / Path("generator.pth"), weights_only=False)
     checkpoint_d = torch.load(path / Path("discriminator.pth"), weights_only=False)
-    model.load_state_dict(checkpoint_g['model'])
-    discriminator.load_state_dict(checkpoint_d['model'])
+    model.load_state_dict(checkpoint_g["model"])
+    discriminator.load_state_dict(checkpoint_d["model"])
+
+    model_optim.load_state_dict(checkpoint_g["optimizer"])
+    discr_optim.load_state_dict(checkpoint_d["optimizer"])
+
     start_epoch = checkpoint_g["epoch"] + 1
     print("Done!")
 else:
     print("Starting training from scratch.")
     start_epoch = 0
 
-model, model_optim, scheduler = accelerator.prepare(model, model_optim, scheduler)
+model, model_optim = accelerator.prepare(model, model_optim)
 discriminator, discr_optim = accelerator.prepare(discriminator, discr_optim)
 
 train_loss_g = []
@@ -198,7 +189,17 @@ vali_loss_d = []
 
 d_updates_per_batch = 1
 
+for epoch in range(start_epoch):
+    set_seed(fix_seed + epoch)
+    if epoch in args.d_updates_epochs:
+        d_updates_per_batch = args.d_updates_per_batch.pop()
+    for loader in [train_loader, vali_loader]:
+        for _ in loader:
+            pass
+
 for epoch in range(start_epoch, start_epoch + args.train_epochs):
+    set_seed(fix_seed + epoch)
+
     if epoch in args.d_updates_epochs:
         d_updates_per_batch = args.d_updates_per_batch.pop()
 
@@ -230,11 +231,11 @@ for epoch in range(start_epoch, start_epoch + args.train_epochs):
 
         # encoder - decoder
         outputs = model(
-                batch_x.float().to(accelerator.device),
-                batch_x_mark.float().to(accelerator.device),
-                dec_inp,
-                batch_y_mark.float().to(accelerator.device),
-            )
+            batch_x.float().to(accelerator.device),
+            batch_x_mark.float().to(accelerator.device),
+            dec_inp,
+            batch_y_mark.float().to(accelerator.device),
+        )
 
         f_dim = -1 if args.features == "MS" else 0
         outputs = outputs[:, -args.pred_len :, f_dim:]
@@ -246,6 +247,7 @@ for epoch in range(start_epoch, start_epoch + args.train_epochs):
         #  TRAIN DISCRIMINATOR
         # =========================================================
         for idiscr in range(d_updates_per_batch):
+            set_seed(fix_seed + epoch + idiscr)
             discr_optim.zero_grad()
 
             # Real samples
@@ -288,6 +290,7 @@ for epoch in range(start_epoch, start_epoch + args.train_epochs):
         # =========================================================
         #  TRAIN GENERATOR (Time-LLM) — MSE + Adversarial
         # =========================================================
+        set_seed(fix_seed + epoch)
         model_optim.zero_grad()
 
         # Adversarial: we want the discriminator to think forecasts are REAL
@@ -327,7 +330,7 @@ for epoch in range(start_epoch, start_epoch + args.train_epochs):
         f"G_adv: {loss_adv.item():.7f}"
     )
 
-    if args.lradj != "TST":
+    """if args.lradj != "TST":
         if args.lradj == "COS":
             scheduler.step()
             accelerator.print("lr = {:.10f}".format(model_optim.param_groups[0]["lr"]))
@@ -342,19 +345,23 @@ for epoch in range(start_epoch, start_epoch + args.train_epochs):
             )
 
     else:
-        accelerator.print(f"Updating learning rate to {scheduler.get_last_lr()[0]}")
+        accelerator.print(f"Updating learning rate to {scheduler.get_last_lr()[0]}")"""
 
-    check_dict_g = create_checkpoint_dict(model, train_loss_g[-1], epoch)
-    torch.save(check_dict_g, path / Path(f"generator_ep{epoch+1}.pth"))
-    check_dict_d = create_checkpoint_dict(discriminator, train_loss_g[-1], epoch)
-    torch.save(check_dict_d, path / Path(f"discriminator_ep{epoch+1}.pth"))
+    check_dict_g = create_checkpoint_dict(
+        model, train_loss_g[-1], epoch, optimizer=model_optim
+    )
+    torch.save(check_dict_g, path / Path(f"generator_ep{epoch + 1}.pth"))
+    check_dict_d = create_checkpoint_dict(
+        discriminator, train_loss_d[-1], epoch, optimizer=discr_optim
+    )
+    torch.save(check_dict_d, path / Path(f"discriminator_ep{epoch + 1}.pth"))
 
 accelerator.wait_for_everyone()
 
 fig = plot_losses(train_loss_g, train_loss_d)
-fig.savefig(path / Path(f"loss_ep{start_epoch+1}-{epoch+1}.png"))
+fig.savefig(path / Path(f"loss_ep{start_epoch + 1}-{epoch + 1}.png"))
 fig = plot_labels(dlabels_for_real, dlabels_for_mock)
-fig.savefig(path / Path(f"labels_ep{start_epoch+1}-{epoch+1}.png"))
+fig.savefig(path / Path(f"labels_ep{start_epoch + 1}-{epoch + 1}.png"))
 
-torch.save(check_dict_g, path / Path(f"generator.pth"))
-torch.save(check_dict_d, path / Path(f"discriminator.pth"))
+torch.save(check_dict_g, path / Path("generator.pth"))
+torch.save(check_dict_d, path / Path("discriminator.pth"))
