@@ -1,8 +1,10 @@
 """Some useful functions for data manipulation and analysis."""
 
+import random
 from pathlib import Path
 
 import numpy as np
+import torch
 from scipy.stats import _continuous_distns, laplace, norm
 
 
@@ -114,3 +116,15 @@ def split_file_at_string(file: Path, string: str) -> int:
                     break
             lines_to_write.append(read_line)
     return n_files
+
+
+def set_seed(seed: int) -> None:
+    """Set the random seed."""
+    torch.manual_seed(seed)
+    random.seed(seed)
+    # for cuda
+    torch.cuda.manual_seed_all(seed)
+    torch.use_deterministic_algorithms(mode=True, warn_only=True)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.enabled = False
