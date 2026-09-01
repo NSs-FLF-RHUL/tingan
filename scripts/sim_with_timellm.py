@@ -109,15 +109,13 @@ if not path_data.exists():
         path_data.with_suffix(".tim"), path_data.with_suffix(".par")
     )
     [*_, prefix, _] = args.data_path.split(".")
-    dfs = []
-    for i in range(n):
-        j = i if i < 10 else i + 1
-        dfs.append(
-            partim_to_timellm_format(
-                Path(args.root_path) / Path(f"{prefix}_{j}").with_suffix(".par"),
-                Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".tim"),
-            )
+    dfs = [
+        partim_to_timellm_format(
+            Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".par"),
+            Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".tim"),
         )
+        for i in range(n)
+    ]
     frame = pd.concat(dfs, axis=0, ignore_index=True)
     frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
 
