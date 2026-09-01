@@ -195,7 +195,7 @@ for epoch in range(start_epoch):
         for _ in loader:
             pass
 
-for epoch in range(start_epoch, start_epoch + args.train_epochs):
+for epoch in range(start_epoch, args.train_epochs):
     set_seed(fix_seed + epoch)
 
     if epoch in args.d_updates_epochs:
