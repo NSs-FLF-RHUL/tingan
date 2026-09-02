@@ -147,7 +147,7 @@ with (path / Path("timellm_config.json")).open("w") as f:
 args.d_updates_per_batch = args.d_updates_per_batch[::-1]
 args.d_updates_epochs = np.array(args.d_updates_epochs).astype(int)
 
-fig_timellm_residuals = plot_timellm_residuals(path_data)
+fig_timellm_residuals = plot_timellm_residuals(path_data, nrows = args.nrows)
 fig_timellm_residuals.savefig(path / Path("residuals.png"))
 
 train_steps = len(train_loader)
