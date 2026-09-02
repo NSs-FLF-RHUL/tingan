@@ -328,23 +328,6 @@ for epoch in range(start_epoch, args.train_epochs):
         f"G_adv: {loss_adv.item():.7f}"
     )
 
-    """if args.lradj != "TST":
-        if args.lradj == "COS":
-            scheduler.step()
-            accelerator.print("lr = {:.10f}".format(model_optim.param_groups[0]["lr"]))
-        else:
-            if epoch == 0:
-                args.learning_rate = model_optim.param_groups[0]["lr"]
-                accelerator.print(
-                    "lr = {:.10f}".format(model_optim.param_groups[0]["lr"])
-                )
-            adjust_learning_rate(
-                accelerator, model_optim, scheduler, epoch + 1, args, printout=True
-            )
-
-    else:
-        accelerator.print(f"Updating learning rate to {scheduler.get_last_lr()[0]}")"""
-
     check_dict_g = create_checkpoint_dict(
         model, train_loss_g[-1], epoch, optimizer=model_optim
     )
