@@ -210,14 +210,15 @@ def plot_labels(
     return fig
 
 
-def plot_timellm_residuals(file: Path) -> plt.Figure:
+def plot_timellm_residuals(file: Path, nrows: int | None = None) -> plt.Figure:
     """
     Plot residuals stored in a file in timellm-compatible format.
 
     :param file: path to timellm file.
+    :param nrows: number of rows to read and plot.
     """
     fig, ax = plt.subplots(figsize=(10, 5))
-    data = pd.read_csv(file)
+    data = pd.read_csv(file, nrows=nrows)
     ndates = len(data["date"])
     dates = np.ones(ndates) * np.nan
     for i in range(ndates):

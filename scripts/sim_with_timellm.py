@@ -1,7 +1,6 @@
 import argparse
 import json
 import os
-import random
 import time
 from pathlib import Path
 
@@ -12,8 +11,8 @@ from accelerate import Accelerator, DistributedDataParallelKwargs
 from timellm.data_provider.data_factory import data_provider
 from timellm.models import TimeLLM
 from timellm.utils.tools import (
-    EarlyStopping,
-    adjust_learning_rate,
+    create_checkpoint_dict,
+    load_content,
     vali_pulsar,
 )
 from tqdm import tqdm
@@ -26,14 +25,14 @@ from tingan.plots import (
     plot_timellm_residuals,
     plot_timing_noise,
 )
+from tingan.utils import set_seed
 
 # Setting some environment variables and random seed, from Time-LLM original scripts
 os.environ["CURL_CA_BUNDLE"] = ""
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:64"
 
 fix_seed = 2026
-random.seed(fix_seed)
-torch.manual_seed(fix_seed)
+set_seed(fix_seed)
 
 # Loading configuration
 with Path("timellm_config.json").open() as f:
@@ -43,14 +42,6 @@ parser = argparse.ArgumentParser()
 args = parser.parse_args(namespace=t_args)
 
 # Checking configuration
-if args.model != "TimeLLM":
-    model_err_msg = "Model should be TimeLLM."
-    raise ValueError(model_err_msg)
-
-if args.use_amp:
-    use_amp_err_msg = "use_amp should be False."
-    raise ValueError(use_amp_err_msg)
-
 if len(args.d_updates_per_batch) != len(args.d_updates_epochs):
     len_err_msg = (
         "d_updates_per_batch and d_updates_epochs should have the same length."
@@ -61,28 +52,55 @@ if args.d_updates_epochs[0] != 0:
     d_err_msg = "d_updates_epochs should start from 0."
     raise ValueError(d_err_msg)
 
+if args.train_epochs < args.d_updates_epochs[-1]:
+    epochs_err_msg = "train_epochs should be larger than last d_updates_epochs."
+    raise ValueError(epochs_err_msg)
+
+# Necessary parameters that should not be modified
+args.model = "TimeLLM"
+args.data = "Pulsar"
+args.llm_model = "LLAMA"
+args.llm_dim = 4096
+args.prompt_domain = True
+args.content = load_content(args)
+args.seasonal_patterns = None
+args.features = "S"
+args.percent = 100
+
 # Setting up distributed training and accelerator, from Time-LLM original scripts
 ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 accelerator = Accelerator(kwargs_handlers=[ddp_kwargs])
 
+d_updates_per_batch_str, d_updates_epochs_str = "", ""
+for i in range(len(args.d_updates_per_batch)):
+    d_updates_per_batch_str += f"{args.d_updates_per_batch[i]}-"
+    d_updates_epochs_str += f"{args.d_updates_epochs[i]}-"
+
 # Setting record of experiments
 setting = (
     f"{args.task_name}_"
-    f"{args.model_id}_"
     f"{args.model}_"
+    f"{args.llm_model}_"
     f"{args.data}_"
-    f"ft{args.features}_"
+    f"nr{args.nrows}_"
+    f"{d_updates_per_batch_str[:-1]}_"
+    f"{d_updates_epochs_str[:-1]}_"
+    f"bs{args.batch_size}_"
     f"sl{args.seq_len}_"
     f"ll{args.label_len}_"
     f"pl{args.pred_len}_"
+    f"ptl{args.patch_len}_"
+    f"ll{args.llm_layers}_"
+    f"do{args.dropout}_"
+    f"sd{args.stride}_"
+    f"lr{args.learning_rate}_"
+    f"{args.lradj}_"
+    f"ps{args.pct_start}_"
     f"dm{args.d_model}_"
     f"nh{args.n_heads}_"
-    f"el{args.e_layers}_"
-    f"dl{args.d_layers}_"
     f"df{args.d_ff}_"
-    f"fc{args.factor}_"
     f"eb{args.embed}_"
-    f"{args.des}"
+    f"ei{args.enc_in}"
 )
 
 path_data = Path(args.root_path) / Path(args.data_path)
@@ -91,22 +109,20 @@ if not path_data.exists():
         path_data.with_suffix(".tim"), path_data.with_suffix(".par")
     )
     [*_, prefix, _] = args.data_path.split(".")
-    dfs = []
-    for i in range(n):
-        j = i if i < 10 else i + 1
-        dfs.append(
-            partim_to_timellm_format(
-                Path(args.root_path) / Path(f"{prefix}_{j}").with_suffix(".par"),
-                Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".tim"),
-            )
+    dfs = [
+        partim_to_timellm_format(
+            Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".par"),
+            Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".tim"),
         )
+        for i in range(n)
+    ]
     frame = pd.concat(dfs, axis=0, ignore_index=True)
     frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
 
 # Creating training, validation and test datasets
-train_data, train_loader = data_provider(args, "train")
-vali_data, vali_loader = data_provider(args, "val")
-test_data, test_loader = data_provider(args, "test")
+train_data, train_loader = data_provider(args, "train", seed=fix_seed)
+vali_data, vali_loader = data_provider(args, "val", seed=fix_seed)
+test_data, test_loader = data_provider(args, "test", seed=fix_seed)
 
 # Creating generator and discriminator
 model = TimeLLM.Model(args).float()
@@ -120,7 +136,7 @@ fake_label = torch.full((1,), 0.0, device=accelerator.device)
 bce_loss = torch.nn.BCELoss()
 
 # Creating directory where results will be saved
-path = Path(args.checkpoints) / Path(setting + "-" + args.model_comment)
+path = Path(args.checkpoints) / Path(setting)
 if not path.exists() and accelerator.is_local_main_process:
     path.mkdir(parents=True)
 
@@ -131,13 +147,10 @@ with (path / Path("timellm_config.json")).open("w") as f:
 args.d_updates_per_batch = args.d_updates_per_batch[::-1]
 args.d_updates_epochs = np.array(args.d_updates_epochs).astype(int)
 
-fig_timellm_residuals = plot_timellm_residuals(path_data)
+fig_timellm_residuals = plot_timellm_residuals(path_data, nrows=args.nrows)
 fig_timellm_residuals.savefig(path / Path("residuals.png"))
 
 train_steps = len(train_loader)
-early_stopping = EarlyStopping(
-    accelerator=accelerator, patience=args.patience, verbose=True
-)
 
 # Optimizers and schedulter
 model_optim = torch.optim.Adam(trainable_parameters(model), lr=args.learning_rate)
@@ -145,20 +158,25 @@ discr_optim = torch.optim.Adam(
     trainable_parameters(discriminator), lr=1e-4, betas=(0.5, 0.999)
 )
 
-if args.lradj == "COS":
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        model_optim, T_max=20, eta_min=1e-8
-    )
-else:
-    scheduler = torch.optim.lr_scheduler.OneCycleLR(
-        optimizer=model_optim,
-        steps_per_epoch=train_steps,
-        pct_start=args.pct_start,
-        epochs=args.train_epochs,
-        max_lr=args.learning_rate,
-    )
+if (path / Path("generator.pth")).exists() and (
+    path / Path("discriminator.pth")
+).exists():
+    print("Loading checkpoint...")
+    checkpoint_g = torch.load(path / Path("generator.pth"), weights_only=False)
+    checkpoint_d = torch.load(path / Path("discriminator.pth"), weights_only=False)
+    model.load_state_dict(checkpoint_g["model"])
+    discriminator.load_state_dict(checkpoint_d["model"])
 
-model, model_optim, scheduler = accelerator.prepare(model, model_optim, scheduler)
+    model_optim.load_state_dict(checkpoint_g["optimizer"])
+    discr_optim.load_state_dict(checkpoint_d["optimizer"])
+
+    start_epoch = checkpoint_g["epoch"] + 1
+    print("Done!")
+else:
+    print("Starting training from scratch.")
+    start_epoch = 0
+
+model, model_optim = accelerator.prepare(model, model_optim)
 discriminator, discr_optim = accelerator.prepare(discriminator, discr_optim)
 
 train_loss_g = []
@@ -169,7 +187,17 @@ vali_loss_d = []
 
 d_updates_per_batch = 1
 
-for epoch in range(args.train_epochs):
+for epoch in range(start_epoch):
+    set_seed(fix_seed + epoch)
+    if epoch in args.d_updates_epochs:
+        d_updates_per_batch = args.d_updates_per_batch.pop()
+    for loader in [train_loader, vali_loader]:
+        for _ in loader:
+            pass
+
+for epoch in range(start_epoch, args.train_epochs):
+    set_seed(fix_seed + epoch)
+
     if epoch in args.d_updates_epochs:
         d_updates_per_batch = args.d_updates_per_batch.pop()
 
@@ -200,20 +228,12 @@ for epoch in range(args.train_epochs):
         )
 
         # encoder - decoder
-        if args.output_attention:
-            outputs = model(
-                batch_x.float().to(accelerator.device),
-                batch_x_mark.float().to(accelerator.device),
-                dec_inp,
-                batch_y_mark.float().to(accelerator.device),
-            )[0]
-        else:
-            outputs = model(
-                batch_x.float().to(accelerator.device),
-                batch_x_mark.float().to(accelerator.device),
-                dec_inp,
-                batch_y_mark.float().to(accelerator.device),
-            )
+        outputs = model(
+            batch_x.float().to(accelerator.device),
+            batch_x_mark.float().to(accelerator.device),
+            dec_inp,
+            batch_y_mark.float().to(accelerator.device),
+        )
 
         f_dim = -1 if args.features == "MS" else 0
         outputs = outputs[:, -args.pred_len :, f_dim:]
@@ -225,6 +245,7 @@ for epoch in range(args.train_epochs):
         #  TRAIN DISCRIMINATOR
         # =========================================================
         for idiscr in range(d_updates_per_batch):
+            set_seed(fix_seed + epoch + idiscr)
             discr_optim.zero_grad()
 
             # Real samples
@@ -267,6 +288,7 @@ for epoch in range(args.train_epochs):
         # =========================================================
         #  TRAIN GENERATOR (Time-LLM) — MSE + Adversarial
         # =========================================================
+        set_seed(fix_seed + epoch)
         model_optim.zero_grad()
 
         # Adversarial: we want the discriminator to think forecasts are REAL
@@ -284,12 +306,6 @@ for epoch in range(args.train_epochs):
         accelerator.backward(loss_g)
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         model_optim.step()
-
-        if args.lradj == "TST":
-            adjust_learning_rate(
-                accelerator, model_optim, scheduler, epoch + 1, args, printout=False
-            )
-            scheduler.step()
 
     accelerator.print(f"Epoch: {epoch + 1} cost time: {time.time() - epoch_time}")
     vali_loss, vali_loss_d, vali_pred_lab, vali_true_lab = vali_pulsar(
@@ -312,31 +328,21 @@ for epoch in range(args.train_epochs):
         f"G_adv: {loss_adv.item():.7f}"
     )
 
-    early_stopping(vali_loss, model, str(path), discriminator)
-    if early_stopping.early_stop:
-        accelerator.print("Early stopping")
-        break
-
-    if args.lradj != "TST":
-        if args.lradj == "COS":
-            scheduler.step()
-            accelerator.print("lr = {:.10f}".format(model_optim.param_groups[0]["lr"]))
-        else:
-            if epoch == 0:
-                args.learning_rate = model_optim.param_groups[0]["lr"]
-                accelerator.print(
-                    "lr = {:.10f}".format(model_optim.param_groups[0]["lr"])
-                )
-            adjust_learning_rate(
-                accelerator, model_optim, scheduler, epoch + 1, args, printout=True
-            )
-
-    else:
-        accelerator.print(f"Updating learning rate to {scheduler.get_last_lr()[0]}")
+    check_dict_g = create_checkpoint_dict(
+        model, train_loss_g[-1], epoch, optimizer=model_optim
+    )
+    torch.save(check_dict_g, path / Path(f"generator_ep{epoch + 1}.pth"))
+    check_dict_d = create_checkpoint_dict(
+        discriminator, train_loss_d[-1], epoch, optimizer=discr_optim
+    )
+    torch.save(check_dict_d, path / Path(f"discriminator_ep{epoch + 1}.pth"))
 
 accelerator.wait_for_everyone()
 
 fig = plot_losses(train_loss_g, train_loss_d)
-fig.savefig(path / Path("loss.pdf"))
+fig.savefig(path / Path(f"loss_ep{start_epoch + 1}-{epoch + 1}.png"))
 fig = plot_labels(dlabels_for_real, dlabels_for_mock)
-fig.savefig(path / Path("labels.pdf"))
+fig.savefig(path / Path(f"labels_ep{start_epoch + 1}-{epoch + 1}.png"))
+
+torch.save(check_dict_g, path / Path("generator.pth"))
+torch.save(check_dict_d, path / Path("discriminator.pth"))
