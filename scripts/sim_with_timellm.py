@@ -31,15 +31,16 @@ from tingan.utils import set_seed
 os.environ["CURL_CA_BUNDLE"] = ""
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:64"
 
-fix_seed = 2026
-set_seed(fix_seed)
-
 # Loading configuration
 with Path("timellm_config.json").open() as f:
     t_args = argparse.Namespace()
     t_args.__dict__.update(json.load(f))
 parser = argparse.ArgumentParser()
 args = parser.parse_args(namespace=t_args)
+
+if args.seed is None:
+    args.seed = torch.initial_seed() % 2**32
+set_seed(args.seed)
 
 # Checking configuration
 if len(args.d_updates_per_batch) != len(args.d_updates_epochs):
@@ -100,8 +101,11 @@ setting = (
     f"nh{args.n_heads}_"
     f"df{args.d_ff}_"
     f"eb{args.embed}_"
-    f"ei{args.enc_in}"
+    f"ei{args.enc_in}_"
+    f"se{args.seed}"
 )
+
+print(setting)
 
 path_data = Path(args.root_path) / Path(args.data_path)
 if not path_data.exists():
@@ -120,9 +124,9 @@ if not path_data.exists():
     frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
 
 # Creating training, validation and test datasets
-train_data, train_loader = data_provider(args, "train", seed=fix_seed)
-vali_data, vali_loader = data_provider(args, "val", seed=fix_seed)
-test_data, test_loader = data_provider(args, "test", seed=fix_seed)
+train_data, train_loader = data_provider(args, "train", seed=args.seed)
+vali_data, vali_loader = data_provider(args, "val", seed=args.seed)
+test_data, test_loader = data_provider(args, "test", seed=args.seed)
 
 # Creating generator and discriminator
 model = TimeLLM.Model(args).float()
@@ -188,7 +192,7 @@ vali_loss_d = []
 d_updates_per_batch = 1
 
 for epoch in range(start_epoch):
-    set_seed(fix_seed + epoch)
+    set_seed(args.seed + epoch)
     if epoch in args.d_updates_epochs:
         d_updates_per_batch = args.d_updates_per_batch.pop()
     for loader in [train_loader, vali_loader]:
@@ -196,7 +200,7 @@ for epoch in range(start_epoch):
             pass
 
 for epoch in range(start_epoch, args.train_epochs):
-    set_seed(fix_seed + epoch)
+    set_seed(args.seed + epoch)
 
     if epoch in args.d_updates_epochs:
         d_updates_per_batch = args.d_updates_per_batch.pop()
@@ -245,7 +249,7 @@ for epoch in range(start_epoch, args.train_epochs):
         #  TRAIN DISCRIMINATOR
         # =========================================================
         for idiscr in range(d_updates_per_batch):
-            set_seed(fix_seed + epoch + idiscr)
+            set_seed(args.seed + epoch + idiscr)
             discr_optim.zero_grad()
 
             # Real samples
@@ -288,7 +292,7 @@ for epoch in range(start_epoch, args.train_epochs):
         # =========================================================
         #  TRAIN GENERATOR (Time-LLM) — MSE + Adversarial
         # =========================================================
-        set_seed(fix_seed + epoch)
+        set_seed(args.seed + epoch)
         model_optim.zero_grad()
 
         # Adversarial: we want the discriminator to think forecasts are REAL

@@ -31,5 +31,7 @@
   "stride": 8,
   "d_model": 16,
   "n_heads": 8,
-  "enc_in": 862
+  "enc_in": 862,
+
+  "seed": null
 }
