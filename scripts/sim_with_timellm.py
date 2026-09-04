@@ -278,7 +278,7 @@ for epoch in range(start_epoch, args.train_epochs):
                     fig=fig,
                     ax=ax,
                 )
-                fig.savefig(path / Path(f"outputs_epoch{epoch}_i{i}.pdf"))
+                fig.savefig(path / Path(f"outputs_epoch{epoch}_i{i}.png"))
 
             torch.nn.utils.clip_grad_norm_(discriminator.parameters(), max_norm=1.0)
             discr_optim.step()
