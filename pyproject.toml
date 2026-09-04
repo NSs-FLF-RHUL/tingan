@@ -4,8 +4,6 @@ classifiers = [
   "Operating System :: POSIX",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
   "Typing :: Typed",
 ]
 dependencies = ["torch", "numpy", "matplotlib", "pyyaml", "scipy", "pint-pulsar", "astropy", "timellm @ git+https://github.com/NSs-FLF-RHUL/Time-LLM"]
@@ -16,7 +14,7 @@ license = "GPL-3.0"
 license-files = ["LICENSE.md"]
 name = "tingan" # name of the package. Should match the name of the folder inside src/
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.12"
 urls.homepage = "https://github.com/NSs-FLF-RHUL/tingan"
 
 [project.optional-dependencies]
