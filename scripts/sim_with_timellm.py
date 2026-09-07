@@ -11,6 +11,7 @@ from accelerate import Accelerator, DistributedDataParallelKwargs
 from timellm.data_provider.data_factory import data_provider
 from timellm.models import TimeLLM
 from timellm.utils.tools import (
+    adjust_learning_rate,
     create_checkpoint_dict,
     load_content,
     vali_pulsar,
@@ -156,7 +157,7 @@ fig_timellm_residuals.savefig(path / Path("residuals.png"))
 
 train_steps = len(train_loader)
 
-# Optimizers and schedulter
+# Optimizers and scheduler
 model_optim = torch.optim.Adam(trainable_parameters(model), lr=args.learning_rate)
 discr_optim = torch.optim.Adam(
     trainable_parameters(discriminator), lr=1e-4, betas=(0.5, 0.999)
@@ -179,6 +180,16 @@ if (path / Path("generator.pth")).exists() and (
 else:
     print("Starting training from scratch.")
     start_epoch = 0
+    
+if args.use_scheduler:
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        optimizer=model_optim,
+        steps_per_epoch=train_steps,
+        pct_start=args.pct_start,
+        epochs=args.train_epochs,
+        max_lr=args.learning_rate,
+    )
+    scheduler = accelerator.prepare(scheduler)
 
 model, model_optim = accelerator.prepare(model, model_optim)
 discriminator, discr_optim = accelerator.prepare(discriminator, discr_optim)
@@ -331,6 +342,16 @@ for epoch in range(start_epoch, args.train_epochs):
         f"D_loss_fake: {loss_d_fake.item():.7f} | "
         f"G_adv: {loss_adv.item():.7f}"
     )
+
+    if args.use_scheduler:
+        if epoch == 0:
+            args.learning_rate = model_optim.param_groups[0]["lr"]
+            accelerator.print(
+                "lr = {:.10f}".format(model_optim.param_groups[0]["lr"])
+            )
+        adjust_learning_rate(
+            accelerator, model_optim, None, epoch + 1, args, printout=True
+        )
 
     check_dict_g = create_checkpoint_dict(
         model, train_loss_g[-1], epoch, optimizer=model_optim
