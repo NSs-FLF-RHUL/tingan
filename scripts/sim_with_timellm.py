@@ -41,7 +41,7 @@ args = parser.parse_args(namespace=t_args)
 
 if args.seed is None:
     args.seed = torch.initial_seed() % 2**32
-set_seed(args.seed)
+set_seed(args.seed, set_ = args.use_seed)
 
 # Checking configuration
 if len(args.d_updates_per_batch) != len(args.d_updates_epochs):
@@ -125,9 +125,9 @@ if not path_data.exists():
     frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
 
 # Creating training, validation and test datasets
-train_data, train_loader = data_provider(args, "train", seed=args.seed)
-vali_data, vali_loader = data_provider(args, "val", seed=args.seed)
-test_data, test_loader = data_provider(args, "test", seed=args.seed)
+train_data, train_loader = data_provider(args, "train", seed=args.seed if args.use_seed else None)
+vali_data, vali_loader = data_provider(args, "val", seed=args.seed if args.use_seed else None)
+test_data, test_loader = data_provider(args, "test", seed=args.seed if args.use_seed else None)
 
 # Creating generator and discriminator
 model = TimeLLM.Model(args).float()
@@ -203,7 +203,7 @@ vali_loss_d = []
 d_updates_per_batch = 1
 
 for epoch in range(start_epoch):
-    set_seed(args.seed + epoch)
+    set_seed(args.seed + epoch, set_ = args.use_seed)
     if epoch in args.d_updates_epochs:
         d_updates_per_batch = args.d_updates_per_batch.pop()
     for loader in [train_loader, vali_loader]:
@@ -211,7 +211,7 @@ for epoch in range(start_epoch):
             pass
 
 for epoch in range(start_epoch, args.train_epochs):
-    set_seed(args.seed + epoch)
+    set_seed(args.seed + epoch, set_ = args.use_seed)
 
     if epoch in args.d_updates_epochs:
         d_updates_per_batch = args.d_updates_per_batch.pop()
@@ -260,7 +260,7 @@ for epoch in range(start_epoch, args.train_epochs):
         #  TRAIN DISCRIMINATOR
         # =========================================================
         for idiscr in range(d_updates_per_batch):
-            set_seed(args.seed + epoch + idiscr)
+            set_seed(args.seed + epoch + idiscr, set_ = args.use_seed)
             discr_optim.zero_grad()
 
             # Real samples
@@ -303,7 +303,7 @@ for epoch in range(start_epoch, args.train_epochs):
         # =========================================================
         #  TRAIN GENERATOR (Time-LLM) — MSE + Adversarial
         # =========================================================
-        set_seed(args.seed + epoch)
+        set_seed(args.seed + epoch, set_ = args.use_seed)
         model_optim.zero_grad()
 
         # Adversarial: we want the discriminator to think forecasts are REAL
