@@ -118,13 +118,21 @@ def split_file_at_string(file: Path, string: str) -> int:
     return n_files
 
 
-def set_seed(seed: int) -> None:
-    """Set the random seed."""
-    torch.manual_seed(seed)
-    random.seed(seed)
-    # for cuda
-    torch.cuda.manual_seed_all(seed)
-    torch.use_deterministic_algorithms(mode=True, warn_only=True)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    torch.backends.cudnn.enabled = False
+def set_seed(seed: int, set_: bool = True) -> None:
+    """
+    Set the random seed.
+
+    Useful to enable reproducibility.
+
+    :param seed: random seed
+    :param set_: whether to set the random seed
+    """
+    if set_:
+        torch.manual_seed(seed)
+        random.seed(seed)
+        # for cuda
+        torch.cuda.manual_seed_all(seed)
+        torch.use_deterministic_algorithms(mode=True, warn_only=True)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.enabled = False
