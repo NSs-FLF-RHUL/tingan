@@ -118,7 +118,7 @@ def split_file_at_string(file: Path, string: str) -> int:
     return n_files
 
 
-def set_seed(seed: int, set_: bool = True) -> None:
+def set_seed(seed: int, *, set_: bool = True) -> None:
     """
     Set the random seed.
 
