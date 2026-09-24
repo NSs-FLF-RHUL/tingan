@@ -11,6 +11,7 @@ from accelerate import Accelerator, DistributedDataParallelKwargs
 from timellm.data_provider.data_factory import data_provider
 from timellm.models import TimeLLM
 from timellm.utils.tools import (
+    adjust_learning_rate,
     create_checkpoint_dict,
     load_content,
     vali_pulsar,
@@ -31,15 +32,16 @@ from tingan.utils import set_seed
 os.environ["CURL_CA_BUNDLE"] = ""
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:64"
 
-fix_seed = 2026
-set_seed(fix_seed)
-
 # Loading configuration
 with Path("timellm_config.json").open() as f:
     t_args = argparse.Namespace()
     t_args.__dict__.update(json.load(f))
 parser = argparse.ArgumentParser()
 args = parser.parse_args(namespace=t_args)
+
+if args.seed is None:
+    args.seed = torch.initial_seed() % 2**32
+set_seed(args.seed, set_=args.use_seed)
 
 # Checking configuration
 if len(args.d_updates_per_batch) != len(args.d_updates_epochs):
@@ -100,8 +102,11 @@ setting = (
     f"nh{args.n_heads}_"
     f"df{args.d_ff}_"
     f"eb{args.embed}_"
-    f"ei{args.enc_in}"
+    f"ei{args.enc_in}_"
+    f"se{args.seed}"
 )
+
+print(setting)
 
 path_data = Path(args.root_path) / Path(args.data_path)
 if not path_data.exists():
@@ -120,9 +125,15 @@ if not path_data.exists():
     frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
 
 # Creating training, validation and test datasets
-train_data, train_loader = data_provider(args, "train", seed=fix_seed)
-vali_data, vali_loader = data_provider(args, "val", seed=fix_seed)
-test_data, test_loader = data_provider(args, "test", seed=fix_seed)
+train_data, train_loader = data_provider(
+    args, "train", seed=args.seed if args.use_seed else None
+)
+vali_data, vali_loader = data_provider(
+    args, "val", seed=args.seed if args.use_seed else None
+)
+test_data, test_loader = data_provider(
+    args, "test", seed=args.seed if args.use_seed else None
+)
 
 # Creating generator and discriminator
 model = TimeLLM.Model(args).float()
@@ -152,7 +163,7 @@ fig_timellm_residuals.savefig(path / Path("residuals.png"))
 
 train_steps = len(train_loader)
 
-# Optimizers and schedulter
+# Optimizers and scheduler
 model_optim = torch.optim.Adam(trainable_parameters(model), lr=args.learning_rate)
 discr_optim = torch.optim.Adam(
     trainable_parameters(discriminator), lr=1e-4, betas=(0.5, 0.999)
@@ -176,6 +187,16 @@ else:
     print("Starting training from scratch.")
     start_epoch = 0
 
+if args.use_scheduler:
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        optimizer=model_optim,
+        steps_per_epoch=train_steps,
+        pct_start=args.pct_start,
+        epochs=args.train_epochs,
+        max_lr=args.learning_rate,
+    )
+    scheduler = accelerator.prepare(scheduler)
+
 model, model_optim = accelerator.prepare(model, model_optim)
 discriminator, discr_optim = accelerator.prepare(discriminator, discr_optim)
 
@@ -188,7 +209,7 @@ vali_loss_d = []
 d_updates_per_batch = 1
 
 for epoch in range(start_epoch):
-    set_seed(fix_seed + epoch)
+    set_seed(args.seed + epoch, set_=args.use_seed)
     if epoch in args.d_updates_epochs:
         d_updates_per_batch = args.d_updates_per_batch.pop()
     for loader in [train_loader, vali_loader]:
@@ -196,7 +217,7 @@ for epoch in range(start_epoch):
             pass
 
 for epoch in range(start_epoch, args.train_epochs):
-    set_seed(fix_seed + epoch)
+    set_seed(args.seed + epoch, set_=args.use_seed)
 
     if epoch in args.d_updates_epochs:
         d_updates_per_batch = args.d_updates_per_batch.pop()
@@ -245,7 +266,7 @@ for epoch in range(start_epoch, args.train_epochs):
         #  TRAIN DISCRIMINATOR
         # =========================================================
         for idiscr in range(d_updates_per_batch):
-            set_seed(fix_seed + epoch + idiscr)
+            set_seed(args.seed + epoch + idiscr, set_=args.use_seed)
             discr_optim.zero_grad()
 
             # Real samples
@@ -278,7 +299,7 @@ for epoch in range(start_epoch, args.train_epochs):
                     fig=fig,
                     ax=ax,
                 )
-                fig.savefig(path / Path(f"outputs_epoch{epoch}_i{i}.pdf"))
+                fig.savefig(path / Path(f"outputs_epoch{epoch}_i{i}.png"))
 
             torch.nn.utils.clip_grad_norm_(discriminator.parameters(), max_norm=1.0)
             discr_optim.step()
@@ -288,7 +309,7 @@ for epoch in range(start_epoch, args.train_epochs):
         # =========================================================
         #  TRAIN GENERATOR (Time-LLM) — MSE + Adversarial
         # =========================================================
-        set_seed(fix_seed + epoch)
+        set_seed(args.seed + epoch, set_=args.use_seed)
         model_optim.zero_grad()
 
         # Adversarial: we want the discriminator to think forecasts are REAL
@@ -327,6 +348,14 @@ for epoch in range(start_epoch, args.train_epochs):
         f"D_loss_fake: {loss_d_fake.item():.7f} | "
         f"G_adv: {loss_adv.item():.7f}"
     )
+
+    if args.use_scheduler:
+        if epoch == 0:
+            args.learning_rate = model_optim.param_groups[0]["lr"]
+            accelerator.print("lr = {:.10f}".format(model_optim.param_groups[0]["lr"]))
+        adjust_learning_rate(
+            accelerator, model_optim, None, epoch + 1, args, printout=True
+        )
 
     check_dict_g = create_checkpoint_dict(
         model, train_loss_g[-1], epoch, optimizer=model_optim
