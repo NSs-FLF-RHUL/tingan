@@ -18,7 +18,11 @@ from timellm.utils.tools import (
 )
 from tqdm import tqdm
 
-from tingan.datasets import partim_to_timellm_format, split_tim_and_par_files
+from tingan.datasets import (
+    partim_to_timellm_format,
+    split_tim_and_par_files,
+    toas_to_timellm_format,
+)
 from tingan.networks import TimeSeriesDiscriminator, trainable_parameters
 from tingan.plots import (
     plot_labels,
@@ -110,19 +114,32 @@ print(setting)
 
 path_data = Path(args.root_path) / Path(args.data_path)
 if not path_data.exists():
-    n = split_tim_and_par_files(
-        path_data.with_suffix(".tim"), path_data.with_suffix(".par")
-    )
-    [*_, prefix, _] = args.data_path.split(".")
-    dfs = [
-        partim_to_timellm_format(
-            Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".par"),
-            Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".tim"),
+    if path_data.with_suffix(".reswerr").exists():
+        frame = np.loadtxt(
+            path_data.with_suffix(".reswerr"),
+            delimiter=" ",
+            skiprows=21,
         )
-        for i in range(n)
-    ]
-    frame = pd.concat(dfs, axis=0, ignore_index=True)
-    frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
+        frame = pd.DataFrame(
+            np.array(
+                [toas_to_timellm_format(frame[:, 0]), frame[:, 4], 1e-6 * frame[:, 2]]
+            ).T
+        )
+        frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
+    else:
+        n = split_tim_and_par_files(
+            path_data.with_suffix(".tim"), path_data.with_suffix(".par")
+        )
+        [*_, prefix, _] = args.data_path.split(".")
+        dfs = [
+            partim_to_timellm_format(
+                Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".par"),
+                Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".tim"),
+            )
+            for i in range(n)
+        ]
+        frame = pd.concat(dfs, axis=0, ignore_index=True)
+        frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
 
 # Creating training, validation and test datasets
 train_data, train_loader = data_provider(
