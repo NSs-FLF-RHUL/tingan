@@ -228,3 +228,28 @@ def plot_timellm_residuals(file: Path, nrows: int | None = None) -> plt.Figure:
     ax.set_ylabel("Residuals [s]")
     fig.tight_layout()
     return fig
+
+
+def plot_nn_graph(
+    model, input_size: list, dtypes: list, depth: int = 1000, model_name: str = "model"
+):
+    """
+    Plot a visual representation of a neural network.
+
+    :param model: neural network to represent.
+    :param input_size: input size used for the graph.
+    :param dtypes: input data types.
+    :param depth: max depth of the graph.
+    :param model_name: model name, for saving purposes.
+    """
+    from torchview import draw_graph
+
+    draw_graph(
+        model,
+        graph_name=f"{model_name}_depth{depth}",
+        depth=depth,
+        expand_nested=True,
+        input_size=input_size,
+        dtypes=dtypes,
+        save_graph=True,
+    )
