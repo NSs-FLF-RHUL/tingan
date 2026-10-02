@@ -381,14 +381,16 @@ for epoch in range(start_epoch, args.train_epochs):
             accelerator, model_optim, None, epoch + 1, args, printout=True
         )
 
-    check_dict_g = create_checkpoint_dict(
-        model, train_loss_g[-1], epoch, optimizer=model_optim
-    )
-    torch.save(check_dict_g, path / Path(f"generator_ep{epoch + 1}.pth"))
-    check_dict_d = create_checkpoint_dict(
-        discriminator, train_loss_d[-1], epoch, optimizer=discr_optim
-    )
-    torch.save(check_dict_d, path / Path(f"discriminator_ep{epoch + 1}.pth"))
+    if args.save_all or epoch + 1 == args.train_epochs:
+        check_dict_g = create_checkpoint_dict(
+            model, train_loss_g[-1], epoch, optimizer=model_optim
+        )
+        check_dict_d = create_checkpoint_dict(
+            discriminator, train_loss_d[-1], epoch, optimizer=discr_optim
+        )
+        if args.save_all:
+            torch.save(check_dict_g, path / Path(f"generator_ep{epoch + 1}.pth"))
+            torch.save(check_dict_d, path / Path(f"discriminator_ep{epoch + 1}.pth"))
 
 accelerator.wait_for_everyone()
 
