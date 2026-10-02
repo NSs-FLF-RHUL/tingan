@@ -227,6 +227,8 @@ dlabels_for_real = []
 dlabels_for_mock = []
 vali_loss_d = []
 
+vali_real, vali_fake = [], []
+
 d_updates_per_batch = 1
 g_updates_per_batch = 1
 
@@ -376,6 +378,10 @@ for epoch in range(start_epoch, args.train_epochs):
     train_loss_d.append(np.nan)
     dlabels_for_real.append(np.nan)
     dlabels_for_mock.append(np.nan)
+
+    vali_real.append(vali_true_lab)
+    vali_fake.append(vali_pred_lab)
+
     accelerator.print(
         f"Epoch: {epoch + 1} | "
         f"Val. real-data labels: {vali_true_lab:.7f} | "
@@ -412,7 +418,7 @@ accelerator.wait_for_everyone()
 
 fig = plot_losses(train_loss_g, train_loss_d)
 fig.savefig(path / Path(f"loss_ep{start_epoch + 1}-{epoch + 1}.png"))
-fig = plot_labels(dlabels_for_real, dlabels_for_mock)
+fig = plot_labels(dlabels_for_real, dlabels_for_mock, vali_real, vali_fake)
 fig.savefig(path / Path(f"labels_ep{start_epoch + 1}-{epoch + 1}.png"))
 
 torch.save(check_dict_g, path / Path("generator.pth"))
