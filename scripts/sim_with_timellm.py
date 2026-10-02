@@ -177,6 +177,7 @@ with (path / Path("timellm_config.json")).open("w") as f:
 
 args.d_updates_per_batch = args.d_updates_per_batch[::-1]
 args.d_updates_epochs = np.array(args.d_updates_epochs).astype(int)
+args.g_updates_per_batch = args.g_updates_per_batch[::-1]
 
 fig_timellm_residuals = plot_timellm_residuals(path_data, nrows=args.nrows)
 fig_timellm_residuals.savefig(path / Path("residuals.png"))
@@ -227,11 +228,13 @@ dlabels_for_mock = []
 vali_loss_d = []
 
 d_updates_per_batch = 1
+g_updates_per_batch = 1
 
 for epoch in range(start_epoch):
     set_seed(args.seed + epoch, set_=args.use_seed)
     if epoch in args.d_updates_epochs:
         d_updates_per_batch = args.d_updates_per_batch.pop()
+        g_updates_per_batch = args.g_updates_per_batch.pop()
     for loader in [train_loader, vali_loader]:
         for _ in loader:
             pass
@@ -241,6 +244,7 @@ for epoch in range(start_epoch, args.train_epochs):
 
     if epoch in args.d_updates_epochs:
         d_updates_per_batch = args.d_updates_per_batch.pop()
+        g_updates_per_batch = args.g_updates_per_batch.pop()
 
     model.train()
     discriminator.train()
@@ -329,24 +333,33 @@ for epoch in range(start_epoch, args.train_epochs):
         # =========================================================
         #  TRAIN GENERATOR (Time-LLM) — MSE + Adversarial
         # =========================================================
-        set_seed(args.seed + epoch, set_=args.use_seed)
-        model_optim.zero_grad()
+        for igen in range(g_updates_per_batch):
+            set_seed(args.seed + epoch + igen, set_=args.use_seed)
+            model_optim.zero_grad()
 
-        # Adversarial: we want the discriminator to think forecasts are REAL
-        d_fake_for_g = discriminator(
-            outputs
-        )  # NO detach here — gradient flows to generator
-        labels_for_g = real_label.expand_as(
-            d_fake_for_g
-        )  # generator wants "real" verdict
-        loss_adv = bce_loss(d_fake_for_g, labels_for_g)
+            # Adversarial: we want the discriminator to think forecasts are REAL
+            d_fake_for_g = discriminator(
+                outputs
+            )  # NO detach here — gradient flows to generator
+            labels_for_g = real_label.expand_as(
+                d_fake_for_g
+            )  # generator wants "real" verdict
+            loss_adv = bce_loss(d_fake_for_g, labels_for_g)
 
-        loss_g = loss_adv
-        train_loss_g.append(loss_g.item())
+            loss_g = loss_adv
+            train_loss_g.append(loss_g.item())
 
-        accelerator.backward(loss_g)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        model_optim.step()
+            accelerator.backward(loss_g)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            model_optim.step()
+
+            outputs = model(
+                batch_x.float().to(accelerator.device),
+                batch_x_mark.float().to(accelerator.device),
+                dec_inp,
+                batch_y_mark.float().to(accelerator.device),
+            )
+            outputs = outputs[:, -args.pred_len :, f_dim:]  # (batch_size, pred_len, 1)
 
         if (i + 1) % 50 == 0:
             accelerator.print(
