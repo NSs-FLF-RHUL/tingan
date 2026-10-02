@@ -30,7 +30,7 @@ from tingan.plots import (
     plot_timellm_residuals,
     plot_timing_noise,
 )
-from tingan.utils import set_seed
+from tingan.utils import set_seed, updates_str
 
 # Setting some environment variables and random seed, from Time-LLM original scripts
 os.environ["CURL_CA_BUNDLE"] = ""
@@ -77,10 +77,12 @@ args.percent = 100
 ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 accelerator = Accelerator(kwargs_handlers=[ddp_kwargs])
 
-d_updates_per_batch_str, d_updates_epochs_str = "", ""
-for i in range(len(args.d_updates_per_batch)):
-    d_updates_per_batch_str += f"{args.d_updates_per_batch[i]}-"
-    d_updates_epochs_str += f"{args.d_updates_epochs[i]}-"
+d_updates_per_batch_str, d_updates_epochs_str = updates_str(
+    args.d_updates_per_batch, args.d_updates_epochs
+)
+g_updates_per_batch_str, _ = updates_str(
+    args.g_updates_per_batch, args.d_updates_epochs
+)
 
 # Setting record of experiments
 setting = (
@@ -90,6 +92,7 @@ setting = (
     f"{args.data}_"
     f"nr{args.nrows}_"
     f"{d_updates_per_batch_str[:-1]}_"
+    f"{g_updates_per_batch_str[:-1]}_"
     f"{d_updates_epochs_str[:-1]}_"
     f"bs{args.batch_size}_"
     f"sl{args.seq_len}_"
