@@ -345,6 +345,13 @@ for epoch in range(start_epoch, args.train_epochs):
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         model_optim.step()
 
+        if (i + 1) % 50 == 0:
+            accelerator.print(
+                f"\tEpoch: {epoch + 1}, iters: {i + 1} | "
+                f"Real-data labels: {torch.mean(d_real):.7f} | "
+                f"Fake-data labels: {torch.mean(d_fake):.7f} "
+            )
+
     accelerator.print(f"Epoch: {epoch + 1} cost time: {time.time() - epoch_time}")
     vali_loss, vali_loss_d, vali_pred_lab, vali_true_lab = vali_pulsar(
         args, accelerator, model, discriminator, vali_data, vali_loader, bce_loss
@@ -354,16 +361,16 @@ for epoch in range(start_epoch, args.train_epochs):
     dlabels_for_real.append(np.nan)
     dlabels_for_mock.append(np.nan)
     accelerator.print(
-        f"Epoch: {epoch + 1} | Train Loss: {train_loss_g[-1]:.7f} "
-        f"Train Loss D: {np.mean(train_loss_d[-d_updates_per_batch:]):.7f} "
+        f"Epoch: {epoch + 1} | "
+        f"Val. real-data labels: {vali_true_lab:.7f} | "
+        f"Val. fake-data labels: {vali_pred_lab:.7f} "
+    )
+
+    accelerator.print(
+        f"Epoch: {epoch + 1} | Train Loss: {train_loss_g[-2]:.7f} "
+        f"Train Loss D: {np.nanmean(train_loss_d[-(i + 2) : -1]):.7f} "
         f"Test Loss: {vali_loss:.7f} "
         f"Test Loss D: {vali_loss_d:.7f}"
-    )
-    accelerator.print(
-        f"\titers: {i + 1}, epoch: {epoch + 1} | "
-        f"D_loss_real: {loss_d_real.item():.7f} | "
-        f"D_loss_fake: {loss_d_fake.item():.7f} | "
-        f"G_adv: {loss_adv.item():.7f}"
     )
 
     if args.use_scheduler:
