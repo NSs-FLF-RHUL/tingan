@@ -59,3 +59,21 @@ def test_split_file_at_string_string_middle() -> None:
     path = fake_concatenated_file(1, "random")
     n = utils.split_file_at_string(path, "random")
     assert n == 1
+
+
+def test_updates_str_basic() -> None:
+    """Test list/array conversion to string."""
+    updates_per_batch = [1, 2, 3]
+    updates_epoch = np.array([0, 1, 2])
+    updates_per_batch_str, updates_epochs_str = utils.updates_str(
+        updates_per_batch, updates_epoch
+    )
+    assert updates_per_batch_str == "1-2-3-"
+    assert updates_epochs_str == "0-1-2-"
+
+
+def test_updates_str_empty() -> None:
+    """Test empty list/array conversion to a string."""
+    updates_per_batch_str, updates_epochs_str = utils.updates_str([], [])
+    assert updates_per_batch_str == ""
+    assert updates_epochs_str == ""
