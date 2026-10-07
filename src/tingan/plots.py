@@ -1,5 +1,6 @@
 """tingan's plots."""
 
+from importlib.util import find_spec
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -9,6 +10,12 @@ import torch
 from astropy.time import Time
 
 import tingan.datasets
+
+if find_spec("torchview") is not None:
+    _has_torchview = True
+    from torchview import draw_graph
+else:
+    _has_torchview = False
 
 
 def plot_timing_noise(
@@ -231,8 +238,12 @@ def plot_timellm_residuals(file: Path, nrows: int | None = None) -> plt.Figure:
 
 
 def plot_nn_graph(
-    model, input_size: list, dtypes: list, depth: int = 1000, model_name: str = "model"
-):
+    model: torch.nn.Module,
+    input_size: list,
+    dtypes: list,
+    depth: int = 1000,
+    model_name: str = "model",
+) -> None:
     """
     Plot a visual representation of a neural network.
 
@@ -242,14 +253,13 @@ def plot_nn_graph(
     :param depth: max depth of the graph.
     :param model_name: model name, for saving purposes.
     """
-    from torchview import draw_graph
-
-    draw_graph(
-        model,
-        graph_name=f"{model_name}_depth{depth}",
-        depth=depth,
-        expand_nested=True,
-        input_size=input_size,
-        dtypes=dtypes,
-        save_graph=True,
-    )
+    if _has_torchview:
+        draw_graph(
+            model,
+            graph_name=f"{model_name}_depth{depth}",
+            depth=depth,
+            expand_nested=True,
+            input_size=input_size,
+            dtypes=dtypes,
+            save_graph=True,
+        )

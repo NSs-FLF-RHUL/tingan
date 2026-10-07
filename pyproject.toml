@@ -29,6 +29,7 @@ docs = [
   "mkdocstrings-python",
 ]
 test = ["pytest", "pytest-cov"]
+plots = ["torchview @ https://github.com/mert-kurttutan/torchview"]
 
 [build-system]
 build-backend = "setuptools.build_meta"
