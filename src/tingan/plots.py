@@ -252,6 +252,9 @@ def plot_nn_graph(
     """
     Plot a visual representation of a neural network.
 
+    This function requires torchview to be installed. If torchview is not installed,
+    this function does nothing, and no error is raised.
+
     :param model: neural network to represent.
     :param input_size: input size used for the graph.
     :param dtypes: input data types.
