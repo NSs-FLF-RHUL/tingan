@@ -2,6 +2,7 @@
 
 from importlib.util import find_spec
 from pathlib import Path
+from warnings import warn
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,6 +17,11 @@ if find_spec("torchview") is not None:
     from torchview import draw_graph
 else:
     _has_torchview = False
+    warn(
+        "torchview is not installed. "
+        "Some plotting functionalities will not be available.",
+        stacklevel=2,
+    )
 
 
 def plot_timing_noise(
@@ -246,6 +252,9 @@ def plot_nn_graph(
 ) -> None:
     """
     Plot a visual representation of a neural network.
+
+    This function requires torchview to be installed. If torchview is not installed,
+    this function does nothing, and no error is raised.
 
     :param model: neural network to represent.
     :param input_size: input size used for the graph.
