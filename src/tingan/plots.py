@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import torch
 from astropy.time import Time
+from warning import warn
 
 import tingan.datasets
 
@@ -16,6 +17,10 @@ if find_spec("torchview") is not None:
     from torchview import draw_graph
 else:
     _has_torchview = False
+    warn(
+        "torchview is not installed. "
+        "Some plotting functionalities will not be available."
+    )
 
 
 def plot_timing_noise(
