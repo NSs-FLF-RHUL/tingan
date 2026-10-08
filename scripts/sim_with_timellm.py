@@ -18,7 +18,11 @@ from timellm.utils.tools import (
 )
 from tqdm import tqdm
 
-from tingan.datasets import partim_to_timellm_format, split_tim_and_par_files
+from tingan.datasets import (
+    partim_to_timellm_format,
+    split_tim_and_par_files,
+    toas_to_timellm_format,
+)
 from tingan.networks import TimeSeriesDiscriminator, trainable_parameters
 from tingan.plots import (
     plot_labels,
@@ -26,7 +30,7 @@ from tingan.plots import (
     plot_timellm_residuals,
     plot_timing_noise,
 )
-from tingan.utils import set_seed
+from tingan.utils import set_seed, updates_str
 
 # Setting some environment variables and random seed, from Time-LLM original scripts
 os.environ["CURL_CA_BUNDLE"] = ""
@@ -73,10 +77,12 @@ args.percent = 100
 ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 accelerator = Accelerator(kwargs_handlers=[ddp_kwargs])
 
-d_updates_per_batch_str, d_updates_epochs_str = "", ""
-for i in range(len(args.d_updates_per_batch)):
-    d_updates_per_batch_str += f"{args.d_updates_per_batch[i]}-"
-    d_updates_epochs_str += f"{args.d_updates_epochs[i]}-"
+d_updates_per_batch_str, d_updates_epochs_str = updates_str(
+    args.d_updates_per_batch, args.d_updates_epochs
+)
+g_updates_per_batch_str, _ = updates_str(
+    args.g_updates_per_batch, args.d_updates_epochs
+)
 
 # Setting record of experiments
 setting = (
@@ -86,6 +92,7 @@ setting = (
     f"{args.data}_"
     f"nr{args.nrows}_"
     f"{d_updates_per_batch_str[:-1]}_"
+    f"{g_updates_per_batch_str[:-1]}_"
     f"{d_updates_epochs_str[:-1]}_"
     f"bs{args.batch_size}_"
     f"sl{args.seq_len}_"
@@ -110,19 +117,32 @@ print(setting)
 
 path_data = Path(args.root_path) / Path(args.data_path)
 if not path_data.exists():
-    n = split_tim_and_par_files(
-        path_data.with_suffix(".tim"), path_data.with_suffix(".par")
-    )
-    [*_, prefix, _] = args.data_path.split(".")
-    dfs = [
-        partim_to_timellm_format(
-            Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".par"),
-            Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".tim"),
+    if path_data.with_suffix(".reswerr").exists():
+        frame = np.loadtxt(
+            path_data.with_suffix(".reswerr"),
+            delimiter=" ",
+            skiprows=21,
         )
-        for i in range(n)
-    ]
-    frame = pd.concat(dfs, axis=0, ignore_index=True)
-    frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
+        frame = pd.DataFrame(
+            np.array(
+                [toas_to_timellm_format(frame[:, 0]), frame[:, 4], 1e-6 * frame[:, 2]]
+            ).T
+        )
+        frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
+    else:
+        n = split_tim_and_par_files(
+            path_data.with_suffix(".tim"), path_data.with_suffix(".par")
+        )
+        [*_, prefix, _] = args.data_path.split(".")
+        dfs = [
+            partim_to_timellm_format(
+                Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".par"),
+                Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".tim"),
+            )
+            for i in range(n)
+        ]
+        frame = pd.concat(dfs, axis=0, ignore_index=True)
+        frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
 
 # Creating training, validation and test datasets
 train_data, train_loader = data_provider(
@@ -157,6 +177,7 @@ with (path / Path("timellm_config.json")).open("w") as f:
 
 args.d_updates_per_batch = args.d_updates_per_batch[::-1]
 args.d_updates_epochs = np.array(args.d_updates_epochs).astype(int)
+args.g_updates_per_batch = args.g_updates_per_batch[::-1]
 
 fig_timellm_residuals = plot_timellm_residuals(path_data, nrows=args.nrows)
 fig_timellm_residuals.savefig(path / Path("residuals.png"))
@@ -206,12 +227,16 @@ dlabels_for_real = []
 dlabels_for_mock = []
 vali_loss_d = []
 
+vali_real, vali_fake = [], []
+
 d_updates_per_batch = 1
+g_updates_per_batch = 1
 
 for epoch in range(start_epoch):
     set_seed(args.seed + epoch, set_=args.use_seed)
     if epoch in args.d_updates_epochs:
         d_updates_per_batch = args.d_updates_per_batch.pop()
+        g_updates_per_batch = args.g_updates_per_batch.pop()
     for loader in [train_loader, vali_loader]:
         for _ in loader:
             pass
@@ -221,6 +246,7 @@ for epoch in range(start_epoch, args.train_epochs):
 
     if epoch in args.d_updates_epochs:
         d_updates_per_batch = args.d_updates_per_batch.pop()
+        g_updates_per_batch = args.g_updates_per_batch.pop()
 
     model.train()
     discriminator.train()
@@ -309,24 +335,40 @@ for epoch in range(start_epoch, args.train_epochs):
         # =========================================================
         #  TRAIN GENERATOR (Time-LLM) — MSE + Adversarial
         # =========================================================
-        set_seed(args.seed + epoch, set_=args.use_seed)
-        model_optim.zero_grad()
+        for igen in range(g_updates_per_batch):
+            set_seed(args.seed + epoch + igen, set_=args.use_seed)
+            model_optim.zero_grad()
 
-        # Adversarial: we want the discriminator to think forecasts are REAL
-        d_fake_for_g = discriminator(
-            outputs
-        )  # NO detach here — gradient flows to generator
-        labels_for_g = real_label.expand_as(
-            d_fake_for_g
-        )  # generator wants "real" verdict
-        loss_adv = bce_loss(d_fake_for_g, labels_for_g)
+            # Adversarial: we want the discriminator to think forecasts are REAL
+            d_fake_for_g = discriminator(
+                outputs
+            )  # NO detach here — gradient flows to generator
+            labels_for_g = real_label.expand_as(
+                d_fake_for_g
+            )  # generator wants "real" verdict
+            loss_adv = bce_loss(d_fake_for_g, labels_for_g)
 
-        loss_g = loss_adv
-        train_loss_g.append(loss_g.item())
+            loss_g = loss_adv
+            train_loss_g.append(loss_g.item())
 
-        accelerator.backward(loss_g)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        model_optim.step()
+            accelerator.backward(loss_g)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            model_optim.step()
+
+            outputs = model(
+                batch_x.float().to(accelerator.device),
+                batch_x_mark.float().to(accelerator.device),
+                dec_inp,
+                batch_y_mark.float().to(accelerator.device),
+            )
+            outputs = outputs[:, -args.pred_len :, f_dim:]  # (batch_size, pred_len, 1)
+
+        if (i + 1) % 50 == 0:
+            accelerator.print(
+                f"\tEpoch: {epoch + 1}, iters: {i + 1} | "
+                f"Real-data labels: {torch.mean(d_real):.7f} | "
+                f"Fake-data labels: {torch.mean(d_fake):.7f} "
+            )
 
     accelerator.print(f"Epoch: {epoch + 1} cost time: {time.time() - epoch_time}")
     vali_loss, vali_loss_d, vali_pred_lab, vali_true_lab = vali_pulsar(
@@ -336,17 +378,21 @@ for epoch in range(start_epoch, args.train_epochs):
     train_loss_d.append(np.nan)
     dlabels_for_real.append(np.nan)
     dlabels_for_mock.append(np.nan)
+
+    vali_real.append(vali_true_lab)
+    vali_fake.append(vali_pred_lab)
+
     accelerator.print(
-        f"Epoch: {epoch + 1} | Train Loss: {train_loss_g[-1]:.7f} "
-        f"Train Loss D: {np.mean(train_loss_d[-d_updates_per_batch:]):.7f} "
+        f"Epoch: {epoch + 1} | "
+        f"Val. real-data labels: {vali_true_lab:.7f} | "
+        f"Val. fake-data labels: {vali_pred_lab:.7f} "
+    )
+
+    accelerator.print(
+        f"Epoch: {epoch + 1} | Train Loss: {train_loss_g[-2]:.7f} "
+        f"Train Loss D: {np.nanmean(train_loss_d[-(i + 2) : -1]):.7f} "
         f"Test Loss: {vali_loss:.7f} "
         f"Test Loss D: {vali_loss_d:.7f}"
-    )
-    accelerator.print(
-        f"\titers: {i + 1}, epoch: {epoch + 1} | "
-        f"D_loss_real: {loss_d_real.item():.7f} | "
-        f"D_loss_fake: {loss_d_fake.item():.7f} | "
-        f"G_adv: {loss_adv.item():.7f}"
     )
 
     if args.use_scheduler:
@@ -357,20 +403,22 @@ for epoch in range(start_epoch, args.train_epochs):
             accelerator, model_optim, None, epoch + 1, args, printout=True
         )
 
-    check_dict_g = create_checkpoint_dict(
-        model, train_loss_g[-1], epoch, optimizer=model_optim
-    )
-    torch.save(check_dict_g, path / Path(f"generator_ep{epoch + 1}.pth"))
-    check_dict_d = create_checkpoint_dict(
-        discriminator, train_loss_d[-1], epoch, optimizer=discr_optim
-    )
-    torch.save(check_dict_d, path / Path(f"discriminator_ep{epoch + 1}.pth"))
+    if args.save_all or epoch + 1 == args.train_epochs:
+        check_dict_g = create_checkpoint_dict(
+            model, train_loss_g[-1], epoch, optimizer=model_optim
+        )
+        check_dict_d = create_checkpoint_dict(
+            discriminator, train_loss_d[-1], epoch, optimizer=discr_optim
+        )
+        if args.save_all:
+            torch.save(check_dict_g, path / Path(f"generator_ep{epoch + 1}.pth"))
+            torch.save(check_dict_d, path / Path(f"discriminator_ep{epoch + 1}.pth"))
 
 accelerator.wait_for_everyone()
 
 fig = plot_losses(train_loss_g, train_loss_d)
 fig.savefig(path / Path(f"loss_ep{start_epoch + 1}-{epoch + 1}.png"))
-fig = plot_labels(dlabels_for_real, dlabels_for_mock)
+fig = plot_labels(dlabels_for_real, dlabels_for_mock, vali_real, vali_fake)
 fig.savefig(path / Path(f"labels_ep{start_epoch + 1}-{epoch + 1}.png"))
 
 torch.save(check_dict_g, path / Path("generator.pth"))

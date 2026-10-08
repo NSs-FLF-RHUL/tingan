@@ -136,3 +136,21 @@ def set_seed(seed: int, *, set_: bool = True) -> None:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.enabled = False
+
+
+def updates_str(
+    updates_per_batch: list | np.ndarray, updates_epochs: list | np.ndarray
+) -> tuple:
+    """
+    Transform lists of integers into strings.
+
+    Useful for creating network train session names.
+
+    :param updates_per_batch: network updates per batch
+    :param updates_epochs: epochs when updates happen
+    """
+    updates_per_batch_str, updates_epochs_str = "", ""
+    for i in range(len(updates_per_batch)):
+        updates_per_batch_str += f"{updates_per_batch[i]}-"
+        updates_epochs_str += f"{updates_epochs[i]}-"
+    return updates_per_batch_str, updates_epochs_str

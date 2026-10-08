@@ -1,14 +1,15 @@
 {
   "root_path": "/scratch5/jberteau/data/tingan/real/Vela/",
-  "data_path": "2016_300to2017_038.csv",
+  "data_path": "2016_300to2017_038_0-58_60-78_decay_f2.csv",
   "checkpoints": "./checkpoints/",
   "target": "resid_s",
   "freq": "s",
   "num_workers": 10,
-  "train_epochs": 5,
-  "nrows": 13135,
+  "train_epochs": 20,
+  "nrows": 20000,
 
-  "d_updates_per_batch": [4, 2],
+  "d_updates_per_batch": [2, 1],
+  "g_updates_per_batch": [1, 2],
   "d_updates_epochs": [0, 3],
 
   "batch_size": 32,
@@ -34,6 +35,8 @@
   "n_heads": 8,
   "enc_in": 862,
 
-  "seed": 16,
-  "use_seed": false
+  "seed": 2610021508,
+  "use_seed": false,
+
+  "save_all": false
 }
