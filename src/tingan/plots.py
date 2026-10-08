@@ -1,6 +1,8 @@
 """tingan's plots."""
 
+from importlib.util import find_spec
 from pathlib import Path
+from warnings import warn
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,6 +11,17 @@ import torch
 from astropy.time import Time
 
 import tingan.datasets
+
+if find_spec("torchview") is not None:
+    _has_torchview = True
+    from torchview import draw_graph
+else:
+    _has_torchview = False
+    warn(
+        "torchview is not installed. "
+        "Some plotting functionalities will not be available.",
+        stacklevel=2,
+    )
 
 
 def plot_timing_noise(
@@ -228,3 +241,34 @@ def plot_timellm_residuals(file: Path, nrows: int | None = None) -> plt.Figure:
     ax.set_ylabel("Residuals [s]")
     fig.tight_layout()
     return fig
+
+
+def plot_nn_graph(
+    model: torch.nn.Module,
+    input_size: list,
+    dtypes: list,
+    depth: int = 1000,
+    model_name: str = "model",
+) -> None:
+    """
+    Plot a visual representation of a neural network.
+
+    This function requires torchview to be installed. If torchview is not installed,
+    this function does nothing, and no error is raised.
+
+    :param model: neural network to represent.
+    :param input_size: input size used for the graph.
+    :param dtypes: input data types.
+    :param depth: max depth of the graph.
+    :param model_name: model name, for saving purposes.
+    """
+    if _has_torchview:
+        draw_graph(
+            model,
+            graph_name=f"{model_name}_depth{depth}",
+            depth=depth,
+            expand_nested=True,
+            input_size=input_size,
+            dtypes=dtypes,
+            save_graph=True,
+        )
