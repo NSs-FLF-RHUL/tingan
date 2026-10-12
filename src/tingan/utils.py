@@ -140,7 +140,7 @@ def set_seed(seed: int, *, set_: bool = True) -> None:
 
 def updates_str(
     updates_per_batch: list | np.ndarray, updates_epochs: list | np.ndarray
-) -> tuple:
+) -> tuple[str, str]:
     """
     Transform lists of integers into strings.
 
@@ -149,8 +149,9 @@ def updates_str(
     :param updates_per_batch: network updates per batch
     :param updates_epochs: epochs when updates happen
     """
-    updates_per_batch_str, updates_epochs_str = "", ""
-    for i in range(len(updates_per_batch)):
-        updates_per_batch_str += f"{updates_per_batch[i]}-"
-        updates_epochs_str += f"{updates_epochs[i]}-"
-    return updates_per_batch_str, updates_epochs_str
+    if not updates_per_batch:
+        return "", ""
+
+    batch_str = "-".join([str(b) for b in updates_per_batch]) + "-"
+    epoch_str = "-".join([str(e) for e in updates_epochs]) + "-"
+    return batch_str, epoch_str
