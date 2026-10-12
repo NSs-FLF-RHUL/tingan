@@ -54,6 +54,12 @@ if len(args.d_updates_per_batch) != len(args.d_updates_epochs):
     )
     raise ValueError(len_err_msg)
 
+if len(args.d_updates_per_batch) != len(args.g_updates_per_batch):
+    len_err_msg = (
+        "d_updates_per_batch and g_updates_per_batch should have the same length."
+    )
+    raise ValueError(len_err_msg)
+
 if args.d_updates_epochs[0] != 0:
     d_err_msg = "d_updates_epochs should start from 0."
     raise ValueError(d_err_msg)
