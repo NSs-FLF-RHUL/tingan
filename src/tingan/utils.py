@@ -152,6 +152,6 @@ def updates_str(
     if not updates_per_batch:
         return "", ""
 
-    batch_str = "-".join([str(b) for b in updates_per_batch]) + "-"
-    epoch_str = "-".join([str(e) for e in updates_epochs]) + "-"
+    batch_str = "-".join([str(b) for b in updates_per_batch])
+    epoch_str = "-".join([str(e) for e in updates_epochs])
     return batch_str, epoch_str
