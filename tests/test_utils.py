@@ -68,8 +68,8 @@ def test_updates_str_basic() -> None:
     updates_per_batch_str, updates_epochs_str = utils.updates_str(
         updates_per_batch, updates_epoch
     )
-    assert updates_per_batch_str == "1-2-3-"
-    assert updates_epochs_str == "0-1-2-"
+    assert updates_per_batch_str == "1-2-3"
+    assert updates_epochs_str == "0-1-2"
 
 
 def test_updates_str_empty() -> None:
