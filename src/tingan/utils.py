@@ -158,16 +158,16 @@ def updates_str(
     if check:
         if len(updates_per_batch) != len(updates_epochs):
             len_err_msg = (
-                "d_updates_per_batch and d_updates_epochs should have the same length."
+                "updates_per_batch and updates_epochs should have the same length."
             )
             raise ValueError(len_err_msg)
 
         if updates_epochs[0] != 0:
-            d_err_msg = "d_updates_epochs should start from 0."
+            d_err_msg = "updates_epochs should start from 0."
             raise ValueError(d_err_msg)
 
         if train_epochs is not None and train_epochs < updates_epochs[-1]:
-            epochs_err_msg = "train_epochs should be larger than last d_updates_epochs."
+            epochs_err_msg = "train_epochs should be larger than last updates_epochs."
             raise ValueError(epochs_err_msg)
 
     updates_per_batch_str, updates_epochs_str = "", ""
