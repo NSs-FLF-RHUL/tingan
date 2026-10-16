@@ -69,8 +69,8 @@ def test_updates_str_basic() -> None:
     updates_per_batch_str, updates_epochs_str = utils.updates_str(
         updates_per_batch, updates_epoch
     )
-    assert updates_per_batch_str == "1-2-3-"
-    assert updates_epochs_str == "0-1-2-"
+    assert updates_per_batch_str == "1-2-3"
+    assert updates_epochs_str == "0-1-2"
 
 
 def test_updates_str_empty() -> None:
@@ -85,9 +85,11 @@ def test_updates_str_low_train_epochs() -> None:
     updates_per_batch = [1, 2]
     updates_epoch = np.array([0, 2])
     train_epochs = 1
-    with pytest.raises(ValueError) as err_info:
+    with pytest.raises(ValueError, match="train_epochs *") as err_info:
         utils.updates_str(updates_per_batch, updates_epoch, train_epochs=train_epochs)
-    assert "train_epochs should be larger than last updates_epochs." in str(err_info.value)
+    assert "train_epochs should be larger than last updates_epochs." in str(
+        err_info.value
+    )
 
 
 def test_updates_str_diff_length() -> None:
@@ -95,16 +97,19 @@ def test_updates_str_diff_length() -> None:
     updates_per_batch = [1, 2, 3]
     updates_epoch = [0, 2]
     train_epochs = 5
-    with pytest.raises(ValueError) as err_info:
+    with pytest.raises(
+        ValueError, match="updates_per_batch and updates_epochs *"
+    ) as err_info:
         utils.updates_str(updates_per_batch, updates_epoch, train_epochs=train_epochs)
-    assert "updates_per_batch and updates_epochs should have the same length." in str(err_info.value)
+    assert "updates_per_batch and updates_epochs should have the same length." in str(
+        err_info.value
+    )
 
 
 def test_updates_str_first_epoch_not_0() -> None:
     """Test if error is raised when first update epoch is not zero."""
     updates_per_batch = [1, 3]
     updates_epoch = [1, 2]
-    with pytest.raises(ValueError) as err_info:
+    with pytest.raises(ValueError, match="updates_epochs *") as err_info:
         utils.updates_str(updates_per_batch, updates_epoch)
     assert "updates_epochs should start from 0." in str(err_info.value)
-
