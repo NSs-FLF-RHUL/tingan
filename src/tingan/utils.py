@@ -136,3 +136,44 @@ def set_seed(seed: int, *, set_: bool = True) -> None:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.enabled = False
+
+
+def updates_str(
+    updates_per_batch: list | np.ndarray,
+    updates_epochs: list | np.ndarray,
+    train_epochs: int | None = None,
+    *,
+    check: bool = True,
+) -> tuple:
+    """
+    Transform lists of integers into strings.
+
+    Useful for creating network train session names.
+
+    :param updates_per_batch: network updates per batch
+    :param updates_epochs: epochs when updates happen
+    :param train_epochs: total number of training epochs
+    :param check: whether to check if the configuration is valid
+    """
+    if check:
+        if len(updates_per_batch) != len(updates_epochs):
+            len_err_msg = (
+                "updates_per_batch and updates_epochs should have the same length."
+            )
+            raise ValueError(len_err_msg)
+
+        if updates_epochs[0] != 0:
+            d_err_msg = "updates_epochs should start from 0."
+            raise ValueError(d_err_msg)
+
+        if train_epochs is not None and train_epochs < updates_epochs[-1]:
+            epochs_err_msg = "train_epochs should be larger than last updates_epochs."
+            raise ValueError(epochs_err_msg)
+
+    if not updates_per_batch:
+        return "", ""
+
+    batch_str = "-".join([str(b) for b in updates_per_batch])
+    epoch_str = "-".join([str(e) for e in updates_epochs])
+
+    return batch_str, epoch_str
