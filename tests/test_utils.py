@@ -74,6 +74,6 @@ def test_updates_str_basic() -> None:
 
 def test_updates_str_empty() -> None:
     """Test empty list/array conversion to a string."""
-    updates_per_batch_str, updates_epochs_str = utils.updates_str([], [])
+    updates_per_batch_str, updates_epochs_str = utils.updates_str([], [], check=False)
     assert updates_per_batch_str == ""
     assert updates_epochs_str == ""
