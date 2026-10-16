@@ -139,7 +139,11 @@ def set_seed(seed: int, *, set_: bool = True) -> None:
 
 
 def updates_str(
-    updates_per_batch: list | np.ndarray, updates_epochs: list | np.ndarray
+    updates_per_batch: list | np.ndarray,
+    updates_epochs: list | np.ndarray,
+    train_epochs: int | None = None,
+    *,
+    check: bool = True,
 ) -> tuple:
     """
     Transform lists of integers into strings.
@@ -148,7 +152,24 @@ def updates_str(
 
     :param updates_per_batch: network updates per batch
     :param updates_epochs: epochs when updates happen
+    :param train_epochs: total number of training epochs
+    :param check: whether to check if the configuration is valid
     """
+    if check:
+        if len(updates_per_batch) != len(updates_epochs):
+            len_err_msg = (
+                "d_updates_per_batch and d_updates_epochs should have the same length."
+            )
+            raise ValueError(len_err_msg)
+
+        if updates_epochs[0] != 0:
+            d_err_msg = "d_updates_epochs should start from 0."
+            raise ValueError(d_err_msg)
+
+        if train_epochs is not None and train_epochs < updates_epochs[-1]:
+            epochs_err_msg = "train_epochs should be larger than last d_updates_epochs."
+            raise ValueError(epochs_err_msg)
+
     updates_per_batch_str, updates_epochs_str = "", ""
     for i in range(len(updates_per_batch)):
         updates_per_batch_str += f"{updates_per_batch[i]}-"

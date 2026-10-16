@@ -47,21 +47,6 @@ if args.seed is None:
     args.seed = torch.initial_seed() % 2**32
 set_seed(args.seed, set_=args.use_seed)
 
-# Checking configuration
-if len(args.d_updates_per_batch) != len(args.d_updates_epochs):
-    len_err_msg = (
-        "d_updates_per_batch and d_updates_epochs should have the same length."
-    )
-    raise ValueError(len_err_msg)
-
-if args.d_updates_epochs[0] != 0:
-    d_err_msg = "d_updates_epochs should start from 0."
-    raise ValueError(d_err_msg)
-
-if args.train_epochs < args.d_updates_epochs[-1]:
-    epochs_err_msg = "train_epochs should be larger than last d_updates_epochs."
-    raise ValueError(epochs_err_msg)
-
 # Necessary parameters that should not be modified
 args.model = "TimeLLM"
 args.data = "Pulsar"
@@ -78,10 +63,10 @@ ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 accelerator = Accelerator(kwargs_handlers=[ddp_kwargs])
 
 d_updates_per_batch_str, d_updates_epochs_str = updates_str(
-    args.d_updates_per_batch, args.d_updates_epochs
+    args.d_updates_per_batch, args.d_updates_epochs, args.train_epochs
 )
 g_updates_per_batch_str, _ = updates_str(
-    args.g_updates_per_batch, args.d_updates_epochs
+    args.g_updates_per_batch, args.d_updates_epochs, args.train_epochs
 )
 
 # Setting record of experiments
