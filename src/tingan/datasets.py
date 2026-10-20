@@ -8,7 +8,9 @@ import pandas as pd
 import torch
 from astropy import units as u
 from pint.models import get_model_and_toas
+from pint.pulsar_mjd import Time
 from pint.residuals import Residuals
+from pint.toa import TOAs
 
 from tingan.utils import split_file_at_string
 
@@ -294,11 +296,23 @@ def partim_to_timellm_format(parfile: Path, timefile: Path) -> pd.DataFrame:
     model, toas = get_model_and_toas(parfile, timefile)
     residuals_seconds = Residuals(toas, model).time_resids.to(u.s)
     errors_resconds = toas.get_errors().to(u.s)
-    mjds = toas.get_mjds(high_precision=True)
-    for i in range(len(mjds)):
-        mjds[i] = mjds[i].isot
+    mjds = toas_to_timellm_format(toas)
     df = pd.DataFrame(np.array([mjds, residuals_seconds, errors_resconds]).T)
     df.to_csv(
         parfile.with_suffix(".csv"), header=["date", "resid_s", "err_s"], index=False
     )
     return df
+
+
+def toas_to_timellm_format(toas: TOAs | np.ndarray | list) -> np.ndarray | list:
+    """
+    Convert TOAs in MJD format to TOAS in timellm format.
+
+    :param toas: TOAs in MJD units
+    """
+    if type(toas) is not TOAs:
+        return Time(toas, scale="utc", format="pulsar_mjd", precision=9).isot
+    mjds = toas.get_mjds(high_precision=True)
+    for i in range(len(mjds)):
+        mjds[i] = mjds[i].isot
+    return mjds

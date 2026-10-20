@@ -191,7 +191,10 @@ def plot_losses(
 
 
 def plot_labels(
-    labels_real: list | np.ndarray, labels_fake: list | np.ndarray
+    labels_real: list | np.ndarray,
+    labels_fake: list | np.ndarray,
+    vali_real: list | np.ndarray | None = None,
+    vali_fake: list | np.ndarray | None = None,
 ) -> plt.Figure:
     """
     Plot real and fake data numerical labels.
@@ -200,8 +203,10 @@ def plot_labels(
     Ideally, labels_real (fake_labels) should be close to 1 (0) during the first
     iterations and close to 0.5 (0.5) at the end for training.
 
-    :param labels_real: labels for real data.
-    :param labels_fake: labels for fake data.
+    :param labels_real: labels for real data during training.
+    :param labels_fake: labels for fake data during training.
+    :param vali_real: labels for real data during validation.
+    :param vali_fake: labels for fake data during validation.
     """
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.plot(labels_real, label="Real")
@@ -209,13 +214,17 @@ def plot_labels(
     i_epochs = np.linspace(0, len(labels_real) - 1, len(labels_real))[
         np.isnan(labels_real)
     ]
-    for ie in i_epochs:
+    for i in range(len(i_epochs)):
+        ie = i_epochs[i]
         ax.axvline(
             x=ie,
             color="red",
             linestyle="--",
             label="End of epoch" if ie == i_epochs[0] else None,
         )
+        if vali_real is not None and vali_fake is not None:
+            ax.plot(ie, vali_real[i], color="tab:blue", marker="o", mec="black")
+            ax.plot(ie, vali_fake[i], color="tab:orange", marker="o", mec="black")
     ax.legend()
     ax.set_xlabel("Iteration")
     ax.set_ylabel("Label")
