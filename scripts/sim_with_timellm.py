@@ -1,5 +1,4 @@
 if __name__ == "__main__":
-
     import argparse
     import json
     import os
@@ -112,7 +111,11 @@ if __name__ == "__main__":
             )
             frame = pd.DataFrame(
                 np.array(
-                    [toas_to_timellm_format(frame[:, 0]), frame[:, 4], 1e-6 * frame[:, 2]]
+                    [
+                        toas_to_timellm_format(frame[:, 0]),
+                        frame[:, 4],
+                        1e-6 * frame[:, 2],
+                    ]
                 ).T
             )
             frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
@@ -292,7 +295,9 @@ if __name__ == "__main__":
                 accelerator.backward(loss_d_real)
 
                 # Fake samples
-                fake_data = outputs.detach()  # detach so gradient doesn't flow to generator
+                fake_data = (
+                    outputs.detach()
+                )  # detach so gradient doesn't flow to generator
                 d_fake = discriminator(fake_data)
                 labels_fake = fake_label.expand_as(d_fake)
                 loss_d_fake = bce_loss(d_fake, labels_fake)
@@ -348,7 +353,9 @@ if __name__ == "__main__":
                     dec_inp,
                     batch_y_mark.float().to(accelerator.device),
                 )
-                outputs = outputs[:, -args.pred_len :, f_dim:]  # (batch_size, pred_len, 1)
+                outputs = outputs[
+                    :, -args.pred_len :, f_dim:
+                ]  # (batch_size, pred_len, 1)
 
             if (i + 1) % 50 == 0:
                 accelerator.print(
@@ -385,7 +392,9 @@ if __name__ == "__main__":
         if args.use_scheduler:
             if epoch == 0:
                 args.learning_rate = model_optim.param_groups[0]["lr"]
-                accelerator.print("lr = {:.10f}".format(model_optim.param_groups[0]["lr"]))
+                accelerator.print(
+                    "lr = {:.10f}".format(model_optim.param_groups[0]["lr"])
+                )
             adjust_learning_rate(
                 accelerator, model_optim, None, epoch + 1, args, printout=True
             )
@@ -399,7 +408,9 @@ if __name__ == "__main__":
             )
             if args.save_all:
                 torch.save(check_dict_g, path / Path(f"generator_ep{epoch + 1}.pth"))
-                torch.save(check_dict_d, path / Path(f"discriminator_ep{epoch + 1}.pth"))
+                torch.save(
+                    check_dict_d, path / Path(f"discriminator_ep{epoch + 1}.pth")
+                )
 
     accelerator.wait_for_everyone()
 
