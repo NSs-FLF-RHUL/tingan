@@ -23,6 +23,7 @@ from tingan.datasets import (
     partim_to_timellm_format,
     split_tim_and_par_files,
     toas_to_timellm_format,
+    fake_dataset_timellm_format,
 )
 from tingan.networks import TimeSeriesDiscriminator, trainable_parameters
 from tingan.plots import (
@@ -107,9 +108,117 @@ setting = (
 
 print(setting)
 
+###
+from timellm.utils.timefeatures import time_features_reverse, time_features
+from tingan.gp_rednoise import load_gammas_and_amplitudes
+from tingan.datasets import toas_to_timellm_format
+from torch.utils.data import ConcatDataset
+from astropy.timeseries import TimeSeries
+from astropy.table import QTable
+from pandas import DatetimeIndex
+
+"""td, vd = [], []
+
+psrs = tuple(Path("/scratch5/jberteau/data/tingan/real/Mike/").glob("[JB]*"))
+_, _, _, _, resid, tm = load_gammas_and_amplitudes(psrs,)
+data = []
+n = 0
+for p,t,r in zip(psrs,tm,resid):
+    tr = np.stack((t,r),axis=-1)[np.argsort(t)]
+    print(p, tr.shape)
+    newp = p.parent / "processed" / p.name
+    np.save(f"{newp}.npy", tr)
+    #print(toas_to_timellm_format(t[0]))
+
+    mjds = toas_to_timellm_format(tr[:,0])
+    #df = pd.DataFrame(np.array([mjds, r, 0*r]).T)
+    #df.to_csv(
+    #    f"{newp}.csv", header=["date", "resid_s", "err_s"], index=False
+    # )
+
+    ts = TimeSeries(time=mjds,
+                    data={'resid_s': r,'err_s': 0*r},
+                    )
+    ts = QTable(ts)
+    ts.rename_column('time', 'date')
+
+    ts.write(f"{newp}.csv", format="csv", overwrite=True)
+
+    if len(t) > 2*args.seq_len:
+        args.data_path = f"{newp}.csv"
+        args.root_path = "/scratch5/jberteau/data/tingan/real/Mike/"
+
+        train_data, tl = data_provider(
+            args, "train", seed=args.seed if args.use_seed else None, scale=True
+        )
+        val_data, _ = data_provider(
+            args, "val", seed=args.seed if args.use_seed else None, scale=True
+        )
+        td.append(train_data)
+        vd.append(val_data)
+        for i, t4 in enumerate(tl):
+            #print(i)
+            #print(time_features_reverse(t4[-2][0],'s')[0])
+            #print(t[args.batch_size*i], mjds[args.batch_size*i])
+
+            tt = (som.reverse(t4[-2][:, :, 0]) +
+                 60 * moh.reverse(t4[-2][:, :, 1]) +
+                 3600 * hod.reverse(t4[-2][:, :, 2]) +
+                 24 * 3600 * doy.reverse(t4[-2][:, :, 3]) +
+                 24 * 3600 * 366 * yoc.reverse(t4[-2][:, :, 4])
+                 ).detach().cpu().numpy()
+
+            for j in range(len(tt)): # 32? batch_size
+                #print(i,j)
+                #print(t4[-2][j][0])
+                #print(time_features_reverse(t4[-2][j], 's')[0])
+                #print(DatetimeIndex([time_features_reverse(t4[-2][j], 's')[0]]))
+                #print(time_features(DatetimeIndex([time_features_reverse(t4[-2][j], 's')[0]]).T,'s'))
+                #print(t[args.batch_size*i+j], mjds[args.batch_size*i+j])
+                #print(DatetimeIndex([mjds[args.batch_size*i+j]]))
+                #print(time_features(DatetimeIndex([mjds[args.batch_size*i+j]]),'s'))
+                #print(time_features_reverse(time_features(DatetimeIndex([mjds[args.batch_size * i + j]]), 's').T,'s'))
+                #print()
+                if not np.all(tt[j, :-1] <= tt[j, 1:]):
+                    iii = np.where(tt[j, :-1] > tt[j, 1:])[0][0]
+                    print(time_features_reverse(t4[-2][j], 's')[iii-2:iii+2])
+                    print(tt[j, iii-2:iii+2])
+                    print(mjds[args.batch_size*i+j:args.batch_size*i+j+args.seq_len][iii-2:iii+2])
+                    print(t[args.batch_size * i + j:args.batch_size * i + j + args.seq_len][iii - 2:iii + 2])
+                    print(tr[args.batch_size * i + j:args.batch_size * i + j + args.seq_len,0][iii - 2:iii + 2])
+                    print(tr.shape)
+
+                    print(t[args.batch_size * i + j:args.batch_size * i + j + args.seq_len][:3])
+                    print(tr[args.batch_size * i + j:args.batch_size * i + j + args.seq_len, 0][:3])
+                    print("err")
+                    quit()
+                    #print(i,j)
+                    #print(t4[j,:,4])
+                    #print(train_data[i*32+j][-1][4])
+                    #print(t[8*(i*32+j):8*(i*32+j)+args.seq_len])
+                    #print(len(t))
+                    #print(8*(i*32+j))
+                    raise ValueError("time array is not sorted")
+###
+"""
 path_data = Path(args.root_path) / Path(args.data_path)
 if not path_data.exists():
-    if path_data.with_suffix(".reswerr").exists():
+    if "_gp.csv" in args.data_path:
+        gp = np.load("/scratch5/jberteau/data/tingan/fake/gp4096.npy")[124]
+        fake_dataset_timellm_format(time_start = "1990-01-02T10:00:00",
+                                    nt=len(gp)//2,
+                                    delta=int(24*3600*(gp[1]-gp[0])),
+                                    dist=gp[len(gp)//2:],
+                                    path=args.root_path,
+                                    )
+    elif len(args.data_path.split("_")) == 4:
+        fake_dataset_timellm_format(time_start = args.data_path.split("_")[0],
+                                    nt = int(float(args.data_path.split("_")[1])),
+                                    delta = int(float(args.data_path.split("_")[2])),
+                                    dist=args.data_path.split("_")[3][:-4],
+                                    path=args.root_path,
+                                    )
+    elif path_data.with_suffix(".reswerr").exists():
         frame = np.loadtxt(
             path_data.with_suffix(".reswerr"),
             delimiter=" ",
