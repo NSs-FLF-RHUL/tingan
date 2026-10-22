@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import torch
 from astropy.time import Time
+from timellm.models.TimeLLM import TimeLLM
 
 import tingan.datasets
 
@@ -288,3 +289,24 @@ def plot_nn_graph(
             dtypes=dtypes,
             save_graph=True,
         )
+
+
+def plot_avg_attention(model: TimeLLM) -> plt.Figure:
+    """
+    Plot the attention of a TimeLLM model as a function of prototype and patch IDs.
+
+    This functions produces similar plots as https://arxiv.org/pdf/2310.01728,
+    Fig. 5a-d. The attention is averaged over batches and attention heads.
+
+    :param model: model to plot.
+    """
+    fig, ax = plt.subplots(2, 1, figsize=(5, 5))
+    cax0 = ax[0].imshow(model.reprogramming_layer.attn_mean)
+    cax1 = ax[1].imshow(model.reprogramming_layer.attn_mean, vmin=0, vmax=1)
+    plt.colorbar(cax0, ax=ax[0])
+    plt.colorbar(cax1, ax=ax[1])
+    for i in range(len(ax)):
+        ax[i].set_xlabel("Text prototype ID")
+        ax[i].set_ylabel("Patch ID")
+    fig.tight_layout()
+    return fig
