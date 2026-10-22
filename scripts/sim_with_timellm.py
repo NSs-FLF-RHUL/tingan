@@ -16,6 +16,7 @@ from timellm.utils.tools import (
     load_content,
     vali_pulsar,
 )
+import timellm.utils.timefeatures as tf
 from tqdm import tqdm
 
 from tingan.datasets import (
@@ -31,6 +32,12 @@ from tingan.plots import (
     plot_timing_noise,
 )
 from tingan.utils import set_seed, updates_str
+
+som = tf.SecondOfMinute()
+moh = tf.MinuteOfHour()
+hod = tf.HourOfDay()
+doy = tf.DayOfYear()
+yoc = tf.YearOfCentury()
 
 # Setting some environment variables and random seed, from Time-LLM original scripts
 os.environ["CURL_CA_BUNDLE"] = ""
@@ -143,7 +150,7 @@ test_data, test_loader = data_provider(
 # Creating generator and discriminator
 model = TimeLLM.Model(args).float()
 discriminator = TimeSeriesDiscriminator(
-    seq_len=args.pred_len, n_channels=1 if args.features == "S" else 0
+    seq_len=args.label_len+args.pred_len, n_channels=train_data[0][-1].shape[-1]+1 #1 if args.features == "S" else 0
 )
 
 # Labels
@@ -239,6 +246,15 @@ for epoch in range(start_epoch, args.train_epochs):
     for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in tqdm(
         enumerate(train_loader)
     ):
+
+        t = (som.reverse(batch_y_mark[:, :, 0])+
+              60*moh.reverse(batch_y_mark[:, :, 1])+
+              3600*hod.reverse(batch_y_mark[:, :, 2])+
+              24*3600*doy.reverse(batch_y_mark[:, :, 3])+
+              24*3600*366*yoc.reverse(batch_y_mark[:, :, 4])
+             ).detach().cpu().numpy()
+        if not np.all(t[0,:-1] <= t[0,1:]):
+            raise ValueError("time array is not sorted")
         # decoder input
         dec_inp = (
             torch.zeros_like(
@@ -268,7 +284,7 @@ for epoch in range(start_epoch, args.train_epochs):
         )
 
         f_dim = -1 if args.features == "MS" else 0
-        outputs = outputs[:, -args.pred_len :, f_dim:]
+        outputs = outputs[:, :, f_dim:]
         batch_y_pred = (
             batch_y[:, -args.pred_len :, f_dim:].float().to(accelerator.device)
         )
@@ -282,7 +298,7 @@ for epoch in range(start_epoch, args.train_epochs):
 
             # Real samples
             real_data = batch_y_pred.detach()  # (batch, pred_len, n_channels)
-            d_real = discriminator(real_data)  # (batch, 1l
+            d_real = discriminator(torch.cat((batch_y_mark[:, :, :], batch_y), dim=-1).detach().float().to(accelerator.device))  # (batch, 1l
             # Expand labels to match batch
             labels_real = real_label.expand_as(d_real)
             loss_d_real = bce_loss(d_real, labels_real)
@@ -291,7 +307,14 @@ for epoch in range(start_epoch, args.train_epochs):
 
             # Fake samples
             fake_data = outputs.detach()  # detach so gradient doesn't flow to generator
-            d_fake = discriminator(fake_data)
+            d_fake = discriminator(torch.cat((
+                batch_y_mark.detach().float().to(accelerator.device),
+                torch.hstack((
+                    batch_y[:, :-args.pred_len, :].detach().float().to(accelerator.device),
+                    fake_data[:,:,:].detach().float().to(accelerator.device)
+                )
+            )
+            ), dim=-1).detach().float().to(accelerator.device))
             labels_fake = fake_label.expand_as(d_fake)
             loss_d_fake = bce_loss(d_fake, labels_fake)
             dlabels_for_mock.append(d_fake.detach().mean().item())
@@ -300,12 +323,16 @@ for epoch in range(start_epoch, args.train_epochs):
             if i == 0 and idiscr == d_updates_per_batch - 1:
                 fig, ax = plot_timing_noise(
                     None,
-                    batch_y_pred[:, :, 0].cpu().detach().numpy(),
+                    np.stack((t,batch_y[:, :, 0].cpu().detach().numpy()), axis=-1),
                     labels=d_real.cpu().detach().numpy().round(3),
                 )
                 fig, ax = plot_timing_noise(
                     None,
-                    outputs[:, :, 0].cpu().detach().numpy(),
+                    np.stack((t,
+                    np.hstack(
+                        (batch_y[:, :-args.pred_len, 0].cpu().detach().numpy(),
+                         outputs[:, :, 0].cpu().detach().numpy(),)
+                    )), axis=-1),
                     labels=d_fake.cpu().detach().numpy().round(3),
                     fig=fig,
                     ax=ax,
@@ -325,9 +352,14 @@ for epoch in range(start_epoch, args.train_epochs):
             model_optim.zero_grad()
 
             # Adversarial: we want the discriminator to think forecasts are REAL
-            d_fake_for_g = discriminator(
-                outputs
-            )  # NO detach here — gradient flows to generator
+            d_fake_for_g = discriminator(torch.cat(
+                (batch_y_mark.float().to(accelerator.device),
+                torch.hstack(
+                (batch_y[:, :-args.pred_len, :].float().to(accelerator.device),
+                outputs[:,:,:].float().to(accelerator.device)))),dim=-1
+            ))
+            #    outputs
+            #)  # NO detach here — gradient flows to generator
             labels_for_g = real_label.expand_as(
                 d_fake_for_g
             )  # generator wants "real" verdict
@@ -356,21 +388,46 @@ for epoch in range(start_epoch, args.train_epochs):
             )
 
     accelerator.print(f"Epoch: {epoch + 1} cost time: {time.time() - epoch_time}")
-    vali_loss, vali_loss_d, vali_pred_lab, vali_true_lab = vali_pulsar(
+    vali_loss, vali_loss_d, vali_pred_lab, vali_true_lab, vali_true, vali_false, bym = vali_pulsar(
         args, accelerator, model, discriminator, vali_data, vali_loader, bce_loss
     )
+    
+    tv = (som.reverse(bym[:, :, 0]) +
+         60 * moh.reverse(bym[:, :, 1]) +
+         3600 * hod.reverse(bym[:, :, 2]) +
+         24 * 3600 * doy.reverse(bym[:, :, 3])+
+         24*3600*366*yoc.reverse(bym[:, :, 4])
+          ).detach().cpu().numpy()
+
+    fig, ax = plot_timing_noise(
+        None,
+        np.stack((tv,vali_true[:,:,0].cpu().detach().numpy()),axis=-1),
+        labels = vali_true_lab[:,0].cpu().detach().numpy().round(3),
+    )
+    fig, ax = plot_timing_noise(
+        None,
+        np.stack((tv,vali_false[:,:,0].cpu().detach().numpy()), axis=-1),
+        labels = vali_pred_lab[:,0].cpu().detach().numpy().round(3),
+        fig=fig,
+        ax=ax,
+    )
+    fig.savefig(path / Path(f"vali_epoch{epoch}.png"))
+
+    fig = plot_avg_attention(model)
+    fig.savefig(path / Path(f"attention_vali_ep{epoch}.png"))
+
     train_loss_g.append(np.nan)
     train_loss_d.append(np.nan)
     dlabels_for_real.append(np.nan)
     dlabels_for_mock.append(np.nan)
 
-    vali_real.append(vali_true_lab)
-    vali_fake.append(vali_pred_lab)
+    vali_real.append(vali_true_lab.mean().cpu())
+    vali_fake.append(vali_pred_lab.mean().cpu())
 
     accelerator.print(
         f"Epoch: {epoch + 1} | "
-        f"Val. real-data labels: {vali_true_lab:.7f} | "
-        f"Val. fake-data labels: {vali_pred_lab:.7f} "
+        f"Val. real-data labels: {vali_real[-1]:.7f} | "
+        f"Val. fake-data labels: {vali_fake[-1]:.7f} "
     )
 
     accelerator.print(
