@@ -235,7 +235,7 @@ if save_location is not None or plot:
             res[i, j, npoints:] = s
 
     if save_location is not None:
-        np.save(save_location, res.reshape((100 * nsim, 2 * 1024)))
+        np.save(save_location, res.reshape((100 * nsim, 2 * npoints)))
 
     if plot:
         for i in range(min(nsim, 500)):
