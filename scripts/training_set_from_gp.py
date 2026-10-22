@@ -46,11 +46,20 @@ parser.add_argument(
     default=("keith",),
     help="Dataset to used (keith, arthasarathy, both)",
 )
+parser.add_argument(
+    "-np",
+    "--npoints",
+    type=int,
+    default=1024,
+    help="Number of points in simulated times series (default: 1024)",
+)
+
 args = parser.parse_args()
 # If you want to then re-scope the original variables you were using
 save_location = Path(args.save[0]) if args.save else None
 nsim = args.nsim[0]
 plot = args.plot
+npoints = args.npoints
 
 t1, e1 = load_latex_table(args.data[0] + "table1.txt")
 t3, e3 = load_latex_table(args.data[0] + "table3.txt")
@@ -205,25 +214,25 @@ tstart_sim = rng.uniform(tstart.min(), tstart.max(), nsim)
 tspans_sim = rng.uniform(tspans.min(), tspans.max(), nsim)
 
 power, freq = simulate_power_spectrum(
-    gammas_sim, amplitudes_sim, dt=(SECONDS_PER_DAY * tspans_sim) / 1024
+    gammas_sim, amplitudes_sim, dt=(SECONDS_PER_DAY * tspans_sim) / npoints, npoints=npoints
 )
-noise = simulate_noise_from_power_spectrum(power, freq)
+noise = simulate_noise_from_power_spectrum(power, freq, npoints=npoints)
 
 power_data, freq_data = simulate_power_spectrum(
-    gammas, amplitudes, dt=(SECONDS_PER_DAY * tspans) / 1024
+    gammas, amplitudes, dt=(SECONDS_PER_DAY * tspans) / npoints
 )
 
-res = np.zeros((nsim, 100, 2 * 1024))
+res = np.zeros((nsim, 100, 2 * npoints))
 
 if save_location is not None or plot:
     for i in range(nsim):
-        t = tstart_sim[i] + np.linspace(0, tspans_sim[i], 1024)
+        t = tstart_sim[i] + np.linspace(0, tspans_sim[i], npoints)
         for j in range(100):
             s = noise[i][j, :]
             p = np.polyfit(t, s, 2)
             s -= np.polyval(p, t)
-            res[i, j, :1024] = t
-            res[i, j, 1024:] = s
+            res[i, j, :npoints] = t
+            res[i, j, npoints:] = s
 
     if save_location is not None:
         np.save(save_location, res.reshape((100 * nsim, 2 * 1024)))
@@ -255,8 +264,8 @@ if save_location is not None or plot:
 
         for i in range(min(nsim, 100)):
             plt.plot(
-                res[i, 0, :1024],
-                res[i, 0, 1024:],
+                res[i, 0, :npoints],
+                res[i, 0, npoints:],
                 alpha=0.5,
                 color="tab:blue",
                 label="Simulated" if i == 0 else None,
