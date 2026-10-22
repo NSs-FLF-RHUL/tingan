@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import torch
 from astropy.time import Time
-from timellm.models.TimeLLM import TimeLLM
+from timellm.models.TimeLLM import Model as TLLMmod
 
 import tingan.datasets
 
@@ -291,7 +291,7 @@ def plot_nn_graph(
         )
 
 
-def plot_avg_attention(model: TimeLLM) -> plt.Figure:
+def plot_avg_attention(model: TLLMmod) -> plt.Figure:
     """
     Plot the attention of a TimeLLM model as a function of prototype and patch IDs.
 
