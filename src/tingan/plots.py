@@ -303,8 +303,8 @@ def plot_avg_attention(model: TLLMmod) -> plt.Figure:
     fig, ax = plt.subplots(2, 1, figsize=(5, 5))
     cax0 = ax[0].imshow(model.reprogramming_layer.attn_mean)
     cax1 = ax[1].imshow(model.reprogramming_layer.attn_mean, vmin=0, vmax=1)
-    plt.colorbar(cax0, ax=ax[0])
-    plt.colorbar(cax1, ax=ax[1])
+    fig.colorbar(cax0, ax=ax[0])
+    fig.colorbar(cax1, ax=ax[1])
     for i in range(len(ax)):
         ax[i].set_xlabel("Text prototype ID")
         ax[i].set_ylabel("Patch ID")
