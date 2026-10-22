@@ -24,7 +24,6 @@ from tingan.datasets import (
     partim_to_timellm_format,
     split_tim_and_par_files,
     toas_to_timellm_format,
-    fake_dataset_timellm_format,
 )
 from tingan.networks import TimeSeriesDiscriminator, trainable_parameters
 from tingan.plots import (
