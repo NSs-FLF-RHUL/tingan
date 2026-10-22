@@ -330,6 +330,11 @@ def fake_dataset_timellm_format(
     """
     Create fake timing noise time series (TS).
 
+    Noise (and error) distribution(s) can be specified by a keyword (e.g. "uniform",
+    "noise" or "sine") and randomly drawn from the corresponding distribution.
+    Otherwise, noise values can be provided, and normally-distributed noise will
+    be added on top of it.
+
     :param time_start: start time of the TS.
     :param nt: number of points in the TS.
     :param delta: time delta between data points [s].
