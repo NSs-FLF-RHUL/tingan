@@ -9,9 +9,9 @@
   "skiprows": 0,
   "nrows": 20000,
 
-  "d_updates_per_batch": [3,1],
-  "g_updates_per_batch": [1,1],
-  "d_updates_epochs": [0,1],
+  "d_updates_per_batch": [3, 1],
+  "g_updates_per_batch": [1, 1],
+  "d_updates_epochs": [0, 1],
 
   "batch_size": 32,
 
