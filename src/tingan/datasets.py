@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 import torch
 from astropy import units as u
-from astropy.timeseries import TimeSeries
 from astropy.table import QTable
+from astropy.timeseries import TimeSeries
 from pint.models import get_model_and_toas
 from pint.pulsar_mjd import Time
 from pint.residuals import Residuals
@@ -320,34 +320,57 @@ def toas_to_timellm_format(toas: TOAs | np.ndarray | list) -> np.ndarray | list:
     return mjds
 
 
-def fake_dataset_timellm_format(time_start='2026-01-02T10:00:00', nt = 20000, delta = 10, dist = 'uniform', path = './'):
+def fake_dataset_timellm_format(
+    time_start: str = "2026-01-02T10:00:00",
+    nt: int = 20000,
+    delta: int = 10,
+    dist: str | list | np.ndarray = "uniform",
+    path: str = "./",
+) -> QTable:
+    """
+    Create fake timing noise time series (TS).
+
+    :param time_start: start time of the TS.
+    :param nt: number of points in the TS.
+    :param delta: time delta between data points [s].
+    :param dist: noise distribution type or sampling.
+    :param path: path to save the TS.
+    """
     if type(dist) is str:
-        if dist == 'uniform':
-            data = {'resid_s': np.random.default_rng().uniform(size=nt),
-                    'err_s': np.random.default_rng().uniform(size=nt)}
-        elif dist == 'normal':
-            data = {'resid_s': np.random.default_rng().normal(size=nt),
-                    'err_s': np.random.default_rng().normal(size=nt)}
-        elif 'sine' in dist:
-            t = np.linspace(0, nt/20 * np.pi, nt)
+        if dist == "uniform":
+            data = {
+                "resid_s": np.random.default_rng().uniform(size=nt),
+                "err_s": np.random.default_rng().uniform(size=nt),
+            }
+        elif dist == "normal":
+            data = {
+                "resid_s": np.random.default_rng().normal(size=nt),
+                "err_s": np.random.default_rng().normal(size=nt),
+            }
+        elif "sine" in dist:
+            t = np.linspace(0, nt / 20 * np.pi, nt)
             r = np.sin(t)
             e = np.cos(t)
-            if 'noise' in dist:
-                r += 0.3*np.random.default_rng().normal(size=nt)
-                e += 0.3*np.random.default_rng().normal(size=nt)
-            data = {'resid_s': r,
-                    'err_s': e}
+            if "noise" in dist:
+                r += 0.3 * np.random.default_rng().normal(size=nt)
+                e += 0.3 * np.random.default_rng().normal(size=nt)
+            data = {"resid_s": r, "err_s": e}
     else:
-        data = {'resid_s': dist+0.1*np.random.default_rng().normal(size=nt),
-                'err_s': np.zeros(nt)}
-        dist = 'gp'
+        data = {
+            "resid_s": dist + 0.1 * np.random.default_rng().normal(size=nt),
+            "err_s": np.zeros(nt),
+        }
+        dist = "gp"
 
-    ts = TimeSeries(time_start=time_start,
-                    time_delta=delta * u.s,
-                    n_samples=nt,
-                    data=data,
-                    )
+    ts = TimeSeries(
+        time_start=time_start,
+        time_delta=delta * u.s,
+        n_samples=nt,
+        data=data,
+    )
     ts = QTable(ts)
-    ts.rename_column('time', 'date')
-    ts.write(f"{path}/{time_start}_{nt}_{delta}_{dist}.csv", format="csv", overwrite=True)
+    ts.rename_column("time", "date")
+    ts.write(
+        f"{path}/{time_start}_{nt}_{delta}_{dist}.csv", format="csv", overwrite=True
+    )
     return ts
