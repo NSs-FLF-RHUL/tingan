@@ -214,7 +214,10 @@ tstart_sim = rng.uniform(tstart.min(), tstart.max(), nsim)
 tspans_sim = rng.uniform(tspans.min(), tspans.max(), nsim)
 
 power, freq = simulate_power_spectrum(
-    gammas_sim, amplitudes_sim, dt=(SECONDS_PER_DAY * tspans_sim) / npoints, npoints=npoints
+    gammas_sim,
+    amplitudes_sim,
+    dt=(SECONDS_PER_DAY * tspans_sim) / npoints,
+    npoints=npoints,
 )
 noise = simulate_noise_from_power_spectrum(power, freq, npoints=npoints)
 
