@@ -8,7 +8,16 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Typing :: Typed",
 ]
-dependencies = ["torch", "numpy", "matplotlib", "pyyaml", "scipy", "pint-pulsar", "astropy", "timellm @ git+https://github.com/NSs-FLF-RHUL/Time-LLM"]
+dependencies = [
+    "torch",
+    "numpy",
+    "matplotlib",
+    "pyyaml",
+    "scipy",
+    "pint-pulsar",
+    "astropy",
+    "timellm",
+]
 description = "A realistic pulsar timing noise simulator." # description of what the package provides / does
 dynamic = ["version"]
 keywords = []
@@ -29,7 +38,6 @@ docs = [
   "mkdocstrings-python",
 ]
 test = ["pytest", "pytest-cov"]
-plots = ["torchview"]
 
 [build-system]
 build-backend = "setuptools.build_meta"
@@ -93,3 +101,6 @@ extras = ["docs"]
 commands = [["pytest", "--cov", "--cov-report=xml", "tests/"]]
 extras = ["test"]
 gh.python."3.11" = ["py311"]
+
+[tool.uv.sources]
+timellm = { path = "../Time-LLM", editable = true }
