@@ -113,7 +113,7 @@ print(setting)
 path_data = Path(args.root_path) / Path(args.data_path)
 if not path_data.exists():
     if "_gp.csv" in args.data_path:
-        gp = np.load("/scratch5/jberteau/data/tingan/fake/gp4096.npy")[124]
+        gp = np.load(Path(args.root_path)/"gp4096.npy")[124]
         fake_dataset_timellm_format(
             time_start="1990-01-02T10:00:00",
             nt=len(gp) // 2,
