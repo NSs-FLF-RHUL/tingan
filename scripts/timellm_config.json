@@ -1,24 +1,25 @@
 {
-  "root_path": "/scratch5/jberteau/data/tingan/real/Vela/",
-  "data_path": "2016_300to2017_038_0-58_60-78_decay_f2.csv",
+  "root_path": "/scratch5/jberteau/data/tingan/fake/",
+  "data_path": "1996-01-02T10:00:00_100000_10_sinenoise.csv",
   "checkpoints": "./checkpoints/",
   "target": "resid_s",
   "freq": "s",
   "num_workers": 10,
-  "train_epochs": 20,
+  "train_epochs": 2,
+  "skiprows": 0,
   "nrows": 20000,
 
-  "d_updates_per_batch": [2, 1],
-  "g_updates_per_batch": [1, 2],
-  "d_updates_epochs": [0, 3],
+  "d_updates_per_batch": [3, 1],
+  "g_updates_per_batch": [1, 1],
+  "d_updates_epochs": [0, 1],
 
   "batch_size": 32,
 
-  "seq_len": 256,
-  "label_len": 24,
-  "pred_len": 48,
+  "seq_len": 128,
+  "label_len": 64,
+  "pred_len": 24,
 
-  "task_name": "long_term_forecast",
+  "task_name": "short_term_forecast",
   "llm_layers": 1,
   "dropout": 0.1,
 
@@ -35,8 +36,10 @@
   "n_heads": 8,
   "enc_in": 862,
 
-  "seed": 2610021508,
+  "seed": 26102200922,
   "use_seed": false,
 
-  "save_all": false
+  "save_all": false,
+
+  "content": "Pulsars is a collection of sinusoidal time series."
 }

@@ -70,6 +70,13 @@ def plot_timing_noise(
                         lambda x: x * d.mjds_std + d.mjds_mean,
                     ),
                 )
+        elif tin[i].ndim == 2:
+            ax[i].plot(
+                tin[i, :, 0],
+                tin[i, :, 1],
+                label=labels[i] if labels is not None else None,
+            )
+            ax[i].legend()
         else:
             ax[i].plot(tin[i], label=labels[i] if labels is not None else None)
             ax[i].legend()
