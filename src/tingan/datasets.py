@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 import torch
 from astropy import units as u
+from astropy.timeseries import TimeSeries
+from astropy.table import QTable
 from pint.models import get_model_and_toas
 from pint.pulsar_mjd import Time
 from pint.residuals import Residuals
@@ -316,3 +318,36 @@ def toas_to_timellm_format(toas: TOAs | np.ndarray | list) -> np.ndarray | list:
     for i in range(len(mjds)):
         mjds[i] = mjds[i].isot
     return mjds
+
+
+def fake_dataset_timellm_format(time_start='2026-01-02T10:00:00', nt = 20000, delta = 10, dist = 'uniform', path = './'):
+    if type(dist) is str:
+        if dist == 'uniform':
+            data = {'resid_s': np.random.default_rng().uniform(size=nt),
+                    'err_s': np.random.default_rng().uniform(size=nt)}
+        elif dist == 'normal':
+            data = {'resid_s': np.random.default_rng().normal(size=nt),
+                    'err_s': np.random.default_rng().normal(size=nt)}
+        elif 'sine' in dist:
+            t = np.linspace(0, nt/20 * np.pi, nt)
+            r = np.sin(t)
+            e = np.cos(t)
+            if 'noise' in dist:
+                r += 0.3*np.random.default_rng().normal(size=nt)
+                e += 0.3*np.random.default_rng().normal(size=nt)
+            data = {'resid_s': r,
+                    'err_s': e}
+    else:
+        data = {'resid_s': dist+0.1*np.random.default_rng().normal(size=nt),
+                'err_s': np.zeros(nt)}
+        dist = 'gp'
+
+    ts = TimeSeries(time_start=time_start,
+                    time_delta=delta * u.s,
+                    n_samples=nt,
+                    data=data,
+                    )
+    ts = QTable(ts)
+    ts.rename_column('time', 'date')
+    ts.write(f"{path}/{time_start}_{nt}_{delta}_{dist}.csv", format="csv", overwrite=True)
+    return ts
