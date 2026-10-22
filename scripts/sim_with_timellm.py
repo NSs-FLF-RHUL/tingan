@@ -413,9 +413,6 @@ for epoch in range(start_epoch, args.train_epochs):
     )
     fig.savefig(path / Path(f"vali_epoch{epoch}.png"))
 
-    fig = plot_avg_attention(model)
-    fig.savefig(path / Path(f"attention_vali_ep{epoch}.png"))
-
     train_loss_g.append(np.nan)
     train_loss_d.append(np.nan)
     dlabels_for_real.append(np.nan)
