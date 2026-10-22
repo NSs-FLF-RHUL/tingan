@@ -27,6 +27,7 @@ from tingan.datasets import (
 )
 from tingan.networks import TimeSeriesDiscriminator, trainable_parameters
 from tingan.plots import (
+    plot_avg_attention,
     plot_labels,
     plot_losses,
     plot_timellm_residuals,
@@ -310,6 +311,10 @@ for epoch in range(start_epoch, args.train_epochs):
             batch_y_mark.float().to(accelerator.device),
         )
 
+        if i == 0 and epoch == 0:
+            fig = plot_avg_attention(model)
+            fig.savefig(path / Path("attention_init.png"))
+
         f_dim = -1 if args.features == "MS" else 0
         outputs = outputs[:, :, f_dim:]
         batch_y_pred = (
@@ -453,6 +458,9 @@ for epoch in range(start_epoch, args.train_epochs):
                 f"Real-data labels: {torch.mean(d_real):.7f} | "
                 f"Fake-data labels: {torch.mean(d_fake):.7f} "
             )
+
+    fig = plot_avg_attention(model)
+    fig.savefig(path / Path(f"attention_train_ep{epoch}.png"))
 
     accelerator.print(f"Epoch: {epoch + 1} cost time: {time.time() - epoch_time}")
     vali_loss, vali_loss_d, vali_pred_lab, vali_true_lab, vali_true, vali_false, bym = (
