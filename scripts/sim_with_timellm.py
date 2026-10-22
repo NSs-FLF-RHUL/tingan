@@ -61,7 +61,8 @@ args.data = "Pulsar"
 args.llm_model = "LLAMA"
 args.llm_dim = 4096
 args.prompt_domain = True
-args.content = load_content(args)
+if args.content is None:
+    args.content = load_content(args)
 args.seasonal_patterns = None
 args.features = "S"
 args.percent = 100
@@ -71,10 +72,10 @@ ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
 accelerator = Accelerator(kwargs_handlers=[ddp_kwargs])
 
 d_updates_per_batch_str, d_updates_epochs_str = updates_str(
-    args.d_updates_per_batch, args.d_updates_epochs, args.train_epochs
+    args.d_updates_per_batch, args.d_updates_epochs
 )
 g_updates_per_batch_str, _ = updates_str(
-    args.g_updates_per_batch, args.d_updates_epochs, args.train_epochs
+    args.g_updates_per_batch, args.d_updates_epochs
 )
 
 # Setting record of experiments
@@ -83,7 +84,8 @@ setting = (
     f"{args.model}_"
     f"{args.llm_model}_"
     f"{args.data}_"
-    f"nr{args.nrows}_"
+    f"nr{args.skiprows}"
+    f"-{args.nrows}_"
     f"{d_updates_per_batch_str}_"
     f"{g_updates_per_batch_str}_"
     f"{d_updates_epochs_str}_"
