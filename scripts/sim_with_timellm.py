@@ -279,7 +279,7 @@ for epoch in range(start_epoch, args.train_epochs):
             .cpu()
             .numpy()
         )
-        if not np.all(t[0, :-1] <= t[0, 1:]):
+        if not np.all(np.diff(t, axis=1) >= 0):
             err_msg = "time array is not sorted"
             raise ValueError(err_msg)
         # decoder input
