@@ -8,11 +8,17 @@ and simulate new ones.
 
 import contextlib
 import json
+from argparse import Namespace
 from pathlib import Path
 
 import numpy as np
+from astropy.table import QTable
+from astropy.timeseries import TimeSeries
 from scipy.integrate import simpson
 from scipy.stats import gaussian_kde
+from timellm.data_provider.data_factory import data_provider
+
+from tingan.datasets import toas_to_timellm_format
 
 SECONDS_PER_DAY = 86400.0
 F_1YR = 1 / (365.25 * SECONDS_PER_DAY)  # in per second
@@ -170,3 +176,52 @@ def simulate_noise_from_power_spectrum(
         signal = np.fft.irfft(spectrum[:, i], norm="forward").reshape(nreal, npoints)
         signals.append(signal)
     return signals
+
+
+def gp_dataset_for_timellm(
+    args: Namespace, *, save_npy: bool = False
+) -> tuple[Namespace, list, list]:
+    """
+    Create red noise train and validation datasets in timellm format.
+
+    Red noise is read from real-data files. For each pulsar, a dataset is created and
+    added to a list. The function returns an updated config containing the path to the
+    last pulsar data file.
+
+    :param args: config file, which contains path to data.
+    :param save_npy: whether to also save datasets in npy format.
+    """
+    train_data, vali_data = [], []
+
+    psrs = tuple(Path(args.root_path).glob("[JB]*"))
+    _, _, _, _, resid, tm = load_gammas_and_amplitudes(psrs)
+
+    for p, t, r in zip(psrs, tm, resid, strict=False):
+        tr = np.stack((t, r), axis=-1)[np.argsort(t)]
+        mjds = toas_to_timellm_format(tr[:, 0])
+
+        newp = p.parent / "processed" / p.name
+        if save_npy:
+            np.save(f"{newp}.npy", tr)
+
+        ts = TimeSeries(
+            time=mjds,
+            data={"resid_s": r, "err_s": 0 * r},
+        )
+        ts = QTable(ts)
+        ts.rename_column("time", "date")
+        ts.write(f"{newp}.csv", format="csv", overwrite=True)
+
+        if len(t) > 2 * args.seq_len:
+            args.data_path = f"{newp}.csv"
+
+            td, _ = data_provider(
+                args, "train", seed=args.seed if args.use_seed else None, scale=True
+            )
+            vd, _ = data_provider(
+                args, "val", seed=args.seed if args.use_seed else None, scale=True
+            )
+            train_data.append(td)
+            vali_data.append(vd)
+
+    return args, train_data, vali_data
