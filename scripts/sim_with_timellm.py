@@ -25,6 +25,7 @@ from tingan.datasets import (
     split_tim_and_par_files,
     toas_to_timellm_format,
 )
+from tingan.gp_rednoise import gp_dataset_for_timellm
 from tingan.networks import TimeSeriesDiscriminator, trainable_parameters
 from tingan.plots import (
     plot_labels,
@@ -110,62 +111,75 @@ setting = (
 
 print(setting)
 
-path_data = Path(args.root_path) / Path(args.data_path)
-if not path_data.exists():
-    if "_gp.csv" in args.data_path:
-        gp = np.load(Path(args.root_path) / "gp4096.npy")[124]
-        fake_dataset_timellm_format(
-            time_start="1990-01-02T10:00:00",
-            nt=len(gp) // 2,
-            delta=int(24 * 3600 * (gp[1] - gp[0])),
-            dist=gp[len(gp) // 2 :],
-            path=args.root_path,
-        )
-    elif len(args.data_path.split("_")) == 4:
-        fake_dataset_timellm_format(
-            time_start=args.data_path.split("_")[0],
-            nt=int(float(args.data_path.split("_")[1])),
-            delta=int(float(args.data_path.split("_")[2])),
-            dist=args.data_path.split("_")[3][:-4],
-            path=args.root_path,
-        )
-    elif path_data.with_suffix(".reswerr").exists():
-        frame = np.loadtxt(
-            path_data.with_suffix(".reswerr"),
-            delimiter=" ",
-            skiprows=21,
-        )
-        frame = pd.DataFrame(
-            np.array(
-                [toas_to_timellm_format(frame[:, 0]), frame[:, 4], 1e-6 * frame[:, 2]]
-            ).T
-        )
-        frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
-    else:
-        n = split_tim_and_par_files(
-            path_data.with_suffix(".tim"), path_data.with_suffix(".par")
-        )
-        [*_, prefix, _] = args.data_path.split(".")
-        dfs = [
-            partim_to_timellm_format(
-                Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".par"),
-                Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".tim"),
+if "Mike" in args.root_path:
+    args, td, vd = gp_dataset_for_timellm(args, save_npy=False)
+    train_data = torch.utils.data.ConcatDataset(td)
+    train_data, train_loader = data_provider(
+        args, "train", seed=args.seed if args.use_seed else None, data_set=train_data
+    )
+    val_data = torch.utils.data.ConcatDataset(vd)
+    vali_data, vali_loader = data_provider(
+        args, "val", seed=args.seed if args.use_seed else None, data_set=val_data
+    )
+    path_data = Path(args.root_path) / Path(args.data_path)
+else:
+    path_data = Path(args.root_path) / Path(args.data_path)
+    if not path_data.exists():
+        if "_gp.csv" in args.data_path:
+            gp = np.load(Path(args.root_path) / "gp4096.npy")[124]
+            fake_dataset_timellm_format(
+                time_start="1990-01-02T10:00:00",
+                nt=len(gp) // 2,
+                delta=int(24 * 3600 * (gp[1] - gp[0])),
+                dist=gp[len(gp) // 2 :],
+                path=args.root_path,
             )
-            for i in range(n)
-        ]
-        frame = pd.concat(dfs, axis=0, ignore_index=True)
-        frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
+        elif len(args.data_path.split("_")) == 4:
+            fake_dataset_timellm_format(
+                time_start=args.data_path.split("_")[0],
+                nt=int(float(args.data_path.split("_")[1])),
+                delta=int(float(args.data_path.split("_")[2])),
+                dist=args.data_path.split("_")[3][:-4],
+                path=args.root_path,
+            )
+        elif path_data.with_suffix(".reswerr").exists():
+            frame = np.loadtxt(
+                path_data.with_suffix(".reswerr"),
+                delimiter=" ",
+                skiprows=21,
+            )
+            frame = pd.DataFrame(
+                np.array(
+                    [
+                        toas_to_timellm_format(frame[:, 0]),
+                        frame[:, 4],
+                        1e-6 * frame[:, 2],
+                    ]
+                ).T
+            )
+            frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
+        else:
+            n = split_tim_and_par_files(
+                path_data.with_suffix(".tim"), path_data.with_suffix(".par")
+            )
+            [*_, prefix, _] = args.data_path.split(".")
+            dfs = [
+                partim_to_timellm_format(
+                    Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".par"),
+                    Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".tim"),
+                )
+                for i in range(n)
+            ]
+            frame = pd.concat(dfs, axis=0, ignore_index=True)
+            frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
 
-# Creating training, validation and test datasets
-train_data, train_loader = data_provider(
-    args, "train", seed=args.seed if args.use_seed else None
-)
-vali_data, vali_loader = data_provider(
-    args, "val", seed=args.seed if args.use_seed else None
-)
-test_data, test_loader = data_provider(
-    args, "test", seed=args.seed if args.use_seed else None
-)
+    # Creating training, validation and test datasets
+    train_data, train_loader = data_provider(
+        args, "train", seed=args.seed if args.use_seed else None
+    )
+    vali_data, vali_loader = data_provider(
+        args, "val", seed=args.seed if args.use_seed else None
+    )
 
 # Creating generator and discriminator
 model = TimeLLM.Model(args).float()
