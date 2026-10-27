@@ -112,7 +112,7 @@ setting = (
 
 print(setting)
 
-if "Mike" in args.root_path:
+if "JBO" in args.root_path:
     args, td, vd = gp_dataset_for_timellm(args, save_npy=False)
     train_data = torch.utils.data.ConcatDataset(td)
     train_data, train_loader = data_provider(
