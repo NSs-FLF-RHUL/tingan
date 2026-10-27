@@ -37,7 +37,6 @@ from tingan.plots import (
 from tingan.utils import set_seed, updates_str
 
 if __name__ == "__main__":
-
     som = tf.SecondOfMinute()
     moh = tf.MinuteOfHour()
     hod = tf.HourOfDay()
@@ -118,7 +117,10 @@ if __name__ == "__main__":
         args, td, vd = gp_dataset_for_timellm(args, save_npy=False)
         train_data = torch.utils.data.ConcatDataset(td)
         train_data, train_loader = data_provider(
-            args, "train", seed=args.seed if args.use_seed else None, data_set=train_data
+            args,
+            "train",
+            seed=args.seed if args.use_seed else None,
+            data_set=train_data,
         )
         val_data = torch.utils.data.ConcatDataset(vd)
         vali_data, vali_loader = data_provider(
@@ -160,7 +162,9 @@ if __name__ == "__main__":
                         ]
                     ).T
                 )
-                frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
+                frame.to_csv(
+                    path_data, header=["date", "resid_s", "err_s"], index=False
+                )
             else:
                 n = split_tim_and_par_files(
                     path_data.with_suffix(".tim"), path_data.with_suffix(".par")
@@ -168,13 +172,17 @@ if __name__ == "__main__":
                 [*_, prefix, _] = args.data_path.split(".")
                 dfs = [
                     partim_to_timellm_format(
-                        Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".par"),
-                        Path(args.root_path) / Path(f"{prefix}_{i}").with_suffix(".tim"),
+                        Path(args.root_path)
+                        / Path(f"{prefix}_{i}").with_suffix(".par"),
+                        Path(args.root_path)
+                        / Path(f"{prefix}_{i}").with_suffix(".tim"),
                     )
                     for i in range(n)
                 ]
                 frame = pd.concat(dfs, axis=0, ignore_index=True)
-                frame.to_csv(path_data, header=["date", "resid_s", "err_s"], index=False)
+                frame.to_csv(
+                    path_data, header=["date", "resid_s", "err_s"], index=False
+                )
 
         # Creating training, validation and test datasets
         train_data, train_loader = data_provider(
@@ -359,7 +367,9 @@ if __name__ == "__main__":
                 accelerator.backward(loss_d_real)
 
                 # Fake samples
-                fake_data = outputs.detach()  # detach so gradient doesn't flow to generator
+                fake_data = (
+                    outputs.detach()
+                )  # detach so gradient doesn't flow to generator
                 d_fake = discriminator(
                     torch.cat(
                         (
@@ -466,7 +476,9 @@ if __name__ == "__main__":
                     dec_inp,
                     batch_y_mark.float().to(accelerator.device),
                 )
-                outputs = outputs[:, -args.pred_len :, f_dim:]  # (batch_size, pred_len, 1)
+                outputs = outputs[
+                    :, -args.pred_len :, f_dim:
+                ]  # (batch_size, pred_len, 1)
 
             if (i + 1) % 50 == 0:
                 accelerator.print(
@@ -479,10 +491,16 @@ if __name__ == "__main__":
         fig.savefig(path / Path(f"attention_train_ep{epoch}.png"))
 
         accelerator.print(f"Epoch: {epoch + 1} cost time: {time.time() - epoch_time}")
-        vali_loss, vali_loss_d, vali_pred_lab, vali_true_lab, vali_true, vali_false, bym = (
-            vali_pulsar(
-                args, accelerator, model, discriminator, vali_data, vali_loader, bce_loss
-            )
+        (
+            vali_loss,
+            vali_loss_d,
+            vali_pred_lab,
+            vali_true_lab,
+            vali_true,
+            vali_false,
+            bym,
+        ) = vali_pulsar(
+            args, accelerator, model, discriminator, vali_data, vali_loader, bce_loss
         )
 
         tv = (
@@ -536,11 +554,13 @@ if __name__ == "__main__":
         if args.use_scheduler:
             if epoch == 0:
                 args.learning_rate = model_optim.param_groups[0]["lr"]
-                accelerator.print("lr = {:.10f}".format(model_optim.param_groups[0]["lr"]))
+                accelerator.print(
+                    "lr = {:.10f}".format(model_optim.param_groups[0]["lr"])
+                )
             adjust_learning_rate(
                 accelerator, model_optim, None, epoch + 1, args, printout=True
             )
-    
+
         if args.save_all or epoch + 1 == args.train_epochs:
             check_dict_g = create_checkpoint_dict(
                 model, train_loss_g[-1], epoch, optimizer=model_optim
@@ -550,7 +570,9 @@ if __name__ == "__main__":
             )
             if args.save_all:
                 torch.save(check_dict_g, path / Path(f"generator_ep{epoch + 1}.pth"))
-                torch.save(check_dict_d, path / Path(f"discriminator_ep{epoch + 1}.pth"))
+                torch.save(
+                    check_dict_d, path / Path(f"discriminator_ep{epoch + 1}.pth")
+                )
 
     accelerator.wait_for_everyone()
 
