@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from scipy.special import erfinv
 from scipy.stats import _continuous_distns, laplace, norm
 
 
@@ -177,3 +178,8 @@ def updates_str(
     epoch_str = "-".join([str(e) for e in updates_epochs])
 
     return batch_str, epoch_str
+
+
+def proba_to_sigma(proba: float | np.ndarray, decimals: int = 3) -> float | np.ndarray:
+    """Convert probability to confidence level."""
+    return np.round(np.sqrt(2) * erfinv(proba), decimals)

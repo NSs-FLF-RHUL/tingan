@@ -113,3 +113,10 @@ def test_updates_str_first_epoch_not_0() -> None:
     with pytest.raises(ValueError, match="updates_epochs *") as err_info:
         utils.updates_str(updates_per_batch, updates_epoch)
     assert "updates_epochs should start from 0." in str(err_info.value)
+
+
+def test_proba_to_sigma() -> None:
+    """Test conversion between probabilities and standard deviations."""
+    proba = np.array([0.683, 0.954, 0.9973])
+    true_sigma = np.array([1, 2, 3])
+    assert np.allclose(true_sigma, utils.proba_to_sigma(proba, 2), atol=1e-2)
