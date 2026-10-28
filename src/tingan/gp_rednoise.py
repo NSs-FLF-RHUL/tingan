@@ -16,6 +16,8 @@ from astropy.table import QTable
 from astropy.timeseries import TimeSeries
 from scipy.integrate import simpson
 from scipy.stats import gaussian_kde
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import ConstantKernel, Matern, WhiteKernel
 from timellm.data_provider.data_factory import data_provider
 
 from tingan.datasets import toas_to_timellm_format
@@ -229,3 +231,89 @@ def gp_dataset_for_timellm(
             vali_data.append(vd)
 
     return args, train_data, vali_data
+
+
+def fit_residual_gp(  # noqa: PLR0913
+    t_list: np.ndarray,
+    residual_list: np.ndarray,
+    nu_mattern: float = 1.5,
+    n_restarts: int = 5,
+    err_list: np.ndarray | None = None,
+    *,
+    normalize_y: bool = True,
+) -> tuple[GaussianProcessRegressor, float, float, float]:
+    """
+    Fit a Matérn GP to the residuals.
+
+    The Matérn kernel with smoothness nu is more flexible than RBF and
+    can capture a range of spectral shapes.
+
+    :param t_list: timestamps for each series
+    :param residual_list: residuals
+    :param nu_mattern: Matérn smoothness parameter
+    :param n_restarts: optimizer restarts for kernel hyperparameters
+    :param err_list: errors on residuals
+    """
+    t_all = np.reshape(t_list, (-1, 1))
+    r_all = np.reshape(residual_list, (-1, 1))
+    if normalize_y:
+        r_mean = r_all.mean()
+        r_std = r_all.std()
+    else:
+        r_mean = 0
+        r_std = 1
+    r_norm = (r_all - r_mean) / r_std
+    r_norm.reshape(-1, 1)
+
+    kernel = ConstantKernel(1.0, (1e-3, 1e3)) * Matern(
+        length_scale=10, length_scale_bounds=(1e-3, 1e3), nu=nu_mattern
+    ) + WhiteKernel(noise_level=1e-2, noise_level_bounds=(1e-3, 1e3))
+
+    alpha = (
+        np.power(np.array(err_list) / r_std, 2).reshape((-1, 1))
+        if err_list is not None
+        else 1e-10
+    )
+
+    gp = GaussianProcessRegressor(
+        kernel=kernel,
+        n_restarts_optimizer=n_restarts,
+        normalize_y=False,
+        random_state=0,
+        alpha=alpha,
+    )
+    gp.fit(t_all, r_norm)
+    score = gp.score(t_all, r_norm)
+
+    return gp, score, r_mean, r_std
+
+
+def sample_residual(
+    t: np.ndarray,
+    residual_gp: GaussianProcessRegressor,
+    rng: np.random.Generator | None = None,
+) -> np.ndarray:
+    """
+    Draw a single sample from the fitted residual GP on timestamps t.
+
+    :param t: timestamps
+    :param residual_gp: fitted GaussianProcessRegressor
+    :param rng: numpy random Generator
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+
+    random_state = rng.integers(0, 2**31)
+    return residual_gp.sample_y(
+        t.reshape(-1, 1), n_samples=1, random_state=int(random_state)
+    ).squeeze()
+
+
+def check_kernel(kernel_dict: dict) -> None:
+    """Check kernel hyperparameters validity."""
+    for param, value in kernel_dict.items():
+        if f"{param}_bounds" in kernel_dict:
+            low, high = kernel_dict[f"{param}_bounds"]
+            if value < low or value > high:
+                err_msg = f"{param}={value} is out of bounds [{low}-{high}]."
+                raise ValueError(err_msg)
