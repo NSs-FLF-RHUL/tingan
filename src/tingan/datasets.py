@@ -1,18 +1,20 @@
 """tingan's datasets."""
 
 import json
+from io import StringIO
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import torch
 from astropy import units as u
-from astropy.table import QTable
+from astropy.table import QTable, Table
 from astropy.timeseries import TimeSeries
-from pint.models import get_model_and_toas
+from pint.models import TimingModel, get_model, get_model_and_toas
 from pint.pulsar_mjd import Time
 from pint.residuals import Residuals
 from pint.toa import TOAs
+from psrqpy import get_catalogue
 
 from tingan.utils import split_file_at_string
 
@@ -379,3 +381,46 @@ def fake_dataset_timellm_format(
         f"{path}/{time_start}_{nt}_{delta}_{dist}.csv", format="csv", overwrite=True
     )
     return ts
+
+
+def get_model_from_json(
+    psr_path: str, obs: str, cat: Table | None = None
+) -> TimingModel:
+    """Create PINT timing model from JSON file."""
+    if cat is None:
+        cat = get_catalogue()
+
+    psr_name = str(psr_path).split("/")[-1]
+
+    psrj = cat["PSRJ"]
+    ipsr = np.where(psrj == psr_name)[0][0]
+
+    psr_param = load_json(f"{psr_path}/model_params.json")
+    _, nwav = load_rednoise_model(f"{psr_path}/tempo2_fit_info.npz")
+
+    for par in ["DM", "RAJ", "DECJ"]:
+        if par not in psr_param:
+            psr_param[par] = cat[par][ipsr]
+
+    par_sim = (
+        f"PSR           {psr_name}\n"
+        f"RAJ           {psr_param['RAJ']}\n"
+        f"DECJ          {psr_param['DECJ']}\n"
+        f"PEPOCH        {Time(psr_param['pepoch'], format='mjd', scale='tdb')}\n"
+        f"F0            {psr_param['F0']}          1\n"
+        f"F1            {psr_param['F1']}       1\n"
+        f"F2            {psr_param['F2']}       1\n"
+        f"PHOFF         0            1\n"
+        f"DM            {psr_param['DM']}\n"
+        f"TNREDAMP      {psr_param['TNRedAmp']}\n"
+        f"TNREDGAM      {psr_param['TNRedGam']}\n"
+        f"TNREDC        {nwav}\n"
+        f"TZRMJD        {Time(psr_param['pepoch'], format='mjd', scale='tdb')}\n"
+        f"TZRFRQ        1400\n"
+        f"TZRSITE       {obs}\n"
+        f"UNITS         TDB\n"
+        f"EPHEM         DE440\n"
+        f"CLOCK         TT(BIPM2019)"
+    )
+
+    return get_model(StringIO(par_sim))
