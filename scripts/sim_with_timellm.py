@@ -583,3 +583,6 @@ if __name__ == "__main__":
 
     torch.save(check_dict_g, path / Path("generator.pth"))
     torch.save(check_dict_d, path / Path("discriminator.pth"))
+
+    os.environ.pop("CURL_CA_BUNDLE")
+    os.environ.pop("PYTORCH_CUDA_ALLOC_CONF")
