@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import torch
 from astropy.time import Time
+from sklearn.gaussian_process import GaussianProcessRegressor
 from timellm.models.TimeLLM import Model as TLLMmod
 
 import tingan.datasets
@@ -308,5 +309,27 @@ def plot_avg_attention(model: TLLMmod) -> plt.Figure:
     for i in range(len(ax)):
         ax[i].set_xlabel("Text prototype ID")
         ax[i].set_ylabel("Patch ID")
+    fig.tight_layout()
+    return fig
+
+
+def plot_kernels(
+    gp: GaussianProcessRegressor,
+    score: float,
+    x: np.ndarray | None = None,
+) -> plt.Figure:
+    """Plot GP kernel, pre- and post-fit."""
+    if x is None:
+        x = np.linspace(-3, 3, 100).reshape(-1, 1)
+
+    fig, ax = plt.subplots(1, 2)
+    ax = ax.flatten()
+
+    ax[0].set_title("Initial kernel")
+    ax[0].imshow(gp.kernel(x, x), vmin=0, vmax=1)
+
+    ax[1].set_title(f"Fitted kernel (score: {score:.4f})")
+    ax[1].imshow(gp.kernel_(x, x), vmin=0, vmax=1)
+
     fig.tight_layout()
     return fig
