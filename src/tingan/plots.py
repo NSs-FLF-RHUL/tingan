@@ -2,6 +2,7 @@
 
 from importlib.util import find_spec
 from pathlib import Path
+from typing import Any
 from warnings import warn
 
 import matplotlib.pyplot as plt
@@ -254,11 +255,30 @@ def plot_timellm_residuals(file: Path, nrows: int | None = None) -> plt.Figure:
     dates = np.ones(ndates) * np.nan
     for i in range(ndates):
         dates[i] = Time(data["date"][i], format="isot").mjd
-    ax.plot(dates, data["resid_s"])
-    ax.set_xlabel("MJD")
-    ax.set_ylabel("Residuals [s]")
+    plot_residuals(dates, data["residuals"], ax=ax)
     fig.tight_layout()
     return fig
+
+
+def plot_residuals(
+    dates_mjd: np.ndarray,
+    resid_s: np.ndarray,
+    ax: plt.Axes,
+    err_s: np.ndarray | None = None,
+    **kwargs: Any,  # noqa: ANN401
+) -> None:
+    """
+    Plot timing noise residuals.
+
+    :param dates_mjd: dates/TOAs in MJD units
+    :param resid_s: residuals in seconds
+    :param ax: axe to plot on
+    :param err_s: errors on the TOAs, in seconds
+    :param kwargs: keyword arguments passed on to the call drawing the plot markers
+    """
+    ax.errorbar(dates_mjd, resid_s, err_s, **kwargs)
+    ax.set_xlabel("MJD")
+    ax.set_ylabel("Residuals [s]")
 
 
 def plot_nn_graph(
