@@ -24,12 +24,13 @@ SECONDS_PER_DAY = 86400.0
 F_1YR = 1 / (365.25 * SECONDS_PER_DAY)  # in per second
 
 
-def load_gammas_and_amplitudes(psrs: tuple) -> tuple:
+def load_gammas_and_amplitudes(psrs: tuple, *, no_f2: bool = True) -> tuple:
     """
     Load Gaussian process fit parameters from file.
 
     :param psrs: Pulsar folders that contain
      timing fit results (model_params.json and residuals.npz).
+     :param no_f2: Wether to include F2
     """
     npsrs = len(psrs)
     gammas, amplitudes, tstart, tspans = (
@@ -55,12 +56,15 @@ def load_gammas_and_amplitudes(psrs: tuple) -> tuple:
         f2 = model_params["F2"]  # in seconds per second^2
         f0 = model_params["F0"]  # in seconds per second
         pepoch = model_params["pepoch"]  # in MJD
-        dat_y_no_f2 = (
-            dat_y - (f2 / 6.0 / f0) * ((dat_t - pepoch) * SECONDS_PER_DAY) ** 3
-        )
-        p = np.polyfit(dat_t, dat_y_no_f2, 2)
-        dat_y_no_f2 -= np.polyval(p, dat_t)
-        resid.append(dat_y_no_f2)
+        if no_f2:
+            dat_y_no_f2 = (
+                dat_y - (f2 / 6.0 / f0) * ((dat_t - pepoch) * SECONDS_PER_DAY) ** 3
+            )
+            p = np.polyfit(dat_t, dat_y_no_f2, 2)
+            dat_y_no_f2 -= np.polyval(p, dat_t)
+            resid.append(dat_y_no_f2)
+        else:
+            resid.append(dat_y)
         time.append(dat_t)
 
     return gammas, amplitudes, tstart, tspans, resid, time
