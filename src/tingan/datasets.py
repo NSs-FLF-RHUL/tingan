@@ -166,7 +166,7 @@ def load_residuals(path: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     Load real-life timing noise residuals.
 
     Each pulsar file contains dates in MJD format, residuals in seconds, and uncertainty
-    of residuals in seconds.
+    of residuals in seconds. Red noise is NOT subtracted from these residuals.
     """
     residuals = np.load(
         path
