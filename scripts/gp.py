@@ -14,8 +14,15 @@ from pint.residuals import Residuals
 from pint.simulation import make_fake_toas_fromMJDs
 from pint.utils import find_optimal_nharms, plrednoise_from_wavex, wavex_setup
 
-from tingan.datasets import get_model_from_json
-from tingan.gp_rednoise import check_kernel, fit_residual_gp, sample_residual
+from tingan.datasets import get_model_from_json, load_residuals
+from tingan.gp_rednoise import (
+    SECONDS_PER_DAY,
+    check_kernel,
+    fit_residual_gp,
+    sample_residual,
+    simulate_noise_from_power_spectrum,
+    simulate_power_spectrum,
+)
 from tingan.plots import plot_kernels, plot_residuals
 
 setup_log(level="WARNING")
@@ -52,7 +59,7 @@ for i in range(len(psrs)):
         continue
 
     # Load errors
-    err = np.load(psrs[i] / "residuals.npz")["error"]
+    _, _, err = load_residuals(psrs[i] / "residuals.npz")
 
     # Fit a Gaussian process to the residuals
     gpr, score, rm, rs = fit_residual_gp(
@@ -68,9 +75,11 @@ for i in range(len(psrs)):
         continue
 
     fig = plot_kernels(gpr, score=score)
+    fig.savefig(psrs[i] / "kernels.png")
 
     fig_real_resid, ax = plt.subplots()
-    plot_residuals(residuals[:, 0], residuals[:, 2], ax, ls="", marker="x")
+    plot_residuals(residuals[:, 0], residuals[:, 2], ax, err_s=err, ls="", marker="x")
+    fig_real_resid.savefig(psrs[i] / "data_residuals.png")
 
     # Future observation times
     mjd_pred = 61406 + np.arange(args.npred) * args.dpred
@@ -78,8 +87,20 @@ for i in range(len(psrs)):
     mjd_all = np.concatenate((residuals[:, 0], mjd_pred)).reshape(-1, 1)
 
     tm = get_model_from_json(str(psrs[i]), obs=args.obs)
+    power, freq = simulate_power_spectrum(
+        tm.TNREDGAM.value,
+        tm.TNREDAMP.value,
+        nreal=1,
+        npoints=args.npred,
+        dt=(SECONDS_PER_DAY * (mjd_pred.max() - mjd_pred.min())) / args.npred,
+    )
+    noise = simulate_noise_from_power_spectrum(power, freq, nreal=1, npoints=args.npred)
+    print("Model fitted to real data:")
+    print(tm)
 
     # Create TOAs for future observation given the timing model we just created
+    tm.write_parfile(psrs[i] / "real_parfile.par")
+    tm.remove_component("PLRedNoise")
     toas_no_resid = make_fake_toas_fromMJDs(
         Time(mjd_pred, scale="utc", format="pulsar_mjd", precision=9),
         tm,
@@ -91,22 +112,66 @@ for i in range(len(psrs)):
     resid_pred = sample_residual(t=mjd_all, residual_gp=gpr) * rs + rm
 
     # Add residuals to future TOAs
+    fig_no_noise, ax = plt.subplots()
+    plot_residuals(
+        dates_mjd=toas_no_resid.get_mjds(),
+        resid_s=Residuals(toas_no_resid, tm).time_resids.to(u.s),
+        err_s=toas_no_resid.get_errors().to(u.s),
+        ax=ax,
+        fmt="x",
+    )
+    fig_no_noise.tight_layout()
+    fig_no_noise.savefig(psrs[i] / "mock_nonoise_resid.png")
     toas_with_resid = toas_no_resid.get_mjds(high_precision=True)
+
     for itoa in range(len(toas_with_resid)):
         toas_with_resid[itoa] += TimeDelta(resid_pred[-args.npred :] * u.s)[itoa]
+    toas_temp = np.array(
+        [toas_with_resid[itoa].value for itoa in range(len(toas_with_resid))],
+        dtype=np.float64,
+    )
+    toas_temp = Time(toas_temp, scale="utc", format="pulsar_mjd")
+    toas_temp = toa.get_TOAs_array(toas_temp, obs=args.obs, errors=err[-1] * u.s)
+    fig_resid, ax = plt.subplots()
+    plot_residuals(
+        dates_mjd=toas_temp.get_mjds(),
+        resid_s=Residuals(toas_temp, tm).time_resids.to(u.s),
+        err_s=toas_temp.get_errors().to(u.s),
+        ax=ax,
+        fmt="x",
+    )
+    fig_resid.tight_layout()
+    fig_resid.savefig(psrs[i] / "mock_resid.png")
+
+    for itoa in range(len(toas_with_resid)):
+        toas_with_resid[itoa] += noise[0][0][itoa] * u.s
         toas_with_resid[itoa] = toas_with_resid[itoa].value
     toas_with_resid = np.array(toas_with_resid, dtype=np.float64)
     toas_with_resid = Time(toas_with_resid, scale="utc", format="pulsar_mjd")
     toas_with_resid = toa.get_TOAs_array(
         toas_with_resid, obs=args.obs, errors=err[-1] * u.s
     )
+    fig_resid, ax = plt.subplots()
+    plot_residuals(
+        dates_mjd=toas_with_resid.get_mjds(),
+        resid_s=Residuals(toas_with_resid, tm).time_resids.to(u.s),
+        err_s=toas_with_resid.get_errors().to(u.s),
+        ax=ax,
+        fmt="x",
+    )
+    fig_resid.tight_layout()
+    fig_resid.savefig(psrs[i] / "mock_resid_rn.png")
 
     # Fit timing model to future TOAs
     tm_temp = deepcopy(tm)
-    tm_temp.remove_component("PLRedNoise")
+    print("Computing optimal number of harmonics...")
     nharm_opt, d_aics = find_optimal_nharms(
-        tm_temp, toas_with_resid, "WaveX", tm.TNREDC.value
+        tm_temp,
+        toas_with_resid,
+        "WaveX",
+        30,  # tm.TNREDC.value
     )
+    print("Optimal number of harmonics:", nharm_opt)
 
     tm_fit = deepcopy(tm_temp)
     Tspan = toas_with_resid.get_mjds().max() - toas_with_resid.get_mjds().min()
@@ -116,11 +181,11 @@ for i in range(len(psrs)):
     f.fit_toas()
     tm_fitted = f.model
 
-    print("Model fitted to real data:")
-    print(tm)
-
+    tm_fitted_pl = plrednoise_from_wavex(tm_fitted)
     print("Model fitted to fake data:")
-    print(plrednoise_from_wavex(tm_fitted))
+    print(tm_fitted_pl)
+    tm_fitted.write_parfile(psrs[i] / "mockfit_parfile_wavex.par")
+    tm_fitted_pl.write_parfile(psrs[i] / "mockfit_parfile_PL.par")
 
     fig_post_fit, ax = plt.subplots()
     plot_residuals(
@@ -131,6 +196,7 @@ for i in range(len(psrs)):
         fmt="x",
     )
     fig_post_fit.tight_layout()
+    fig_post_fit.savefig(psrs[i] / "mock_postfit_resid.png")
 
     fig_pre_fit, ax = plt.subplots()
     plot_residuals(
@@ -141,5 +207,6 @@ for i in range(len(psrs)):
         fmt="x",
     )
     fig_pre_fit.tight_layout()
+    fig_pre_fit.savefig(psrs[i] / "mock_pretfit_resid.png")
 
     plt.show()
