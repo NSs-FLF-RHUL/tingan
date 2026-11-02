@@ -1,0 +1,45 @@
+{
+  "root_path": "/scratch5/jberteau/data/tingan/real/JBO/",
+  "data_path": "",
+  "checkpoints": "./checkpoints/",
+  "target": "resid_s",
+  "freq": "s",
+  "num_workers": 10,
+  "train_epochs": 1,
+  "skiprows": 0,
+  "nrows": 10000,
+
+  "d_updates_per_batch": [3, 1],
+  "g_updates_per_batch": [1, 1],
+  "d_updates_epochs": [0, 1],
+
+  "batch_size": 32,
+
+  "seq_len": 128,
+  "label_len": 64,
+  "pred_len": 24,
+
+  "task_name": "short_term_forecast",
+  "llm_layers": 1,
+  "dropout": 0.1,
+
+  "use_scheduler": true,
+  "learning_rate": 0.01,
+  "lradj": "type1",
+  "pct_start": 0.2,
+
+  "embed": "timeF",
+  "d_ff": 32,
+  "patch_len": 16,
+  "stride": 8,
+  "d_model": 16,
+  "n_heads": 8,
+  "enc_in": 862,
+
+  "seed": 2610230905,
+  "use_seed": false,
+
+  "save_all": false,
+
+  "content": "Pulsars is a collection of timing residuals, centered around zero."
+}
