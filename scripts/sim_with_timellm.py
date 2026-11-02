@@ -48,36 +48,8 @@ if __name__ == "__main__":
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:64"
 
     # Loading configuration
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-i",
-        "--input_file",
-        required=False,
-        default="timellm_config.json",
-        type=str,
-        help="Input file",
-    )
-    args = parser.parse_args()
-    with Path(args.input_file).open() as f:
-        t_args = argparse.Namespace()
-        t_args.__dict__.update(json.load(f))
-    args = parser.parse_args(namespace=t_args)
-
-    if args.seed is None:
-        args.seed = torch.initial_seed() % 2**32
+    args = load_config(script=Path(__file__).name)
     set_seed(args.seed, set_=args.use_seed)
-
-    # Necessary parameters that should not be modified
-    args.model = "TimeLLM"
-    args.data = "Pulsar"
-    args.llm_model = "LLAMA"
-    args.llm_dim = 4096
-    args.prompt_domain = True
-    if args.content is None:
-        args.content = load_content(args)
-    args.seasonal_patterns = None
-    args.features = "S"
-    args.percent = 100
 
     # Setting up distributed training and accelerator, from Time-LLM original scripts
     ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
