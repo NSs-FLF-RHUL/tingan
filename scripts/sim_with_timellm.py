@@ -55,42 +55,8 @@ if __name__ == "__main__":
     ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
     accelerator = Accelerator(kwargs_handlers=[ddp_kwargs])
 
-    d_updates_per_batch_str, d_updates_epochs_str = updates_str(
-        args.d_updates_per_batch, args.d_updates_epochs
-    )
-    g_updates_per_batch_str, _ = updates_str(
-        args.g_updates_per_batch, args.d_updates_epochs
-    )
-
     # Setting record of experiments
-    setting = (
-        f"{args.task_name}_"
-        f"{args.model}_"
-        f"{args.llm_model}_"
-        f"{args.data}_"
-        f"nr{args.skiprows}"
-        f"-{args.nrows}_"
-        f"{d_updates_per_batch_str}_"
-        f"{g_updates_per_batch_str}_"
-        f"{d_updates_epochs_str}_"
-        f"bs{args.batch_size}_"
-        f"sl{args.seq_len}_"
-        f"ll{args.label_len}_"
-        f"pl{args.pred_len}_"
-        f"ptl{args.patch_len}_"
-        f"ll{args.llm_layers}_"
-        f"do{args.dropout}_"
-        f"sd{args.stride}_"
-        f"lr{args.learning_rate}_"
-        f"{args.lradj}_"
-        f"ps{args.pct_start}_"
-        f"dm{args.d_model}_"
-        f"nh{args.n_heads}_"
-        f"df{args.d_ff}_"
-        f"eb{args.embed}_"
-        f"ei{args.enc_in}_"
-        f"se{args.seed}"
-    )
+    setting = setting_str_from_args(args)
 
     print(setting)
 
