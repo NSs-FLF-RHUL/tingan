@@ -79,7 +79,9 @@ if __name__ == "__main__":
     args.d_updates_epochs = np.array(args.d_updates_epochs).astype(int)
     args.g_updates_per_batch = args.g_updates_per_batch[::-1]
 
-    fig_timellm_residuals = plot_timellm_residuals(path_data, nrows=args.nrows)
+    fig_timellm_residuals = plot_timellm_residuals(
+        compute_path_data(args), nrows=args.nrows
+    )
     fig_timellm_residuals.savefig(path / Path("residuals.png"))
 
     train_steps = len(train_loader)
