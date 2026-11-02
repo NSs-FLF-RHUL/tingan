@@ -1,31 +1,25 @@
-import argparse
 import json
 import os
 import time
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import timellm.utils.timefeatures as tf
 import torch
 from accelerate import Accelerator, DistributedDataParallelKwargs
-from timellm.data_provider.data_factory import data_provider
 from timellm.models import TimeLLM
 from timellm.utils.tools import (
     adjust_learning_rate,
     create_checkpoint_dict,
-    load_content,
     vali_pulsar,
 )
 from tqdm import tqdm
 
-from tingan.datasets import (
-    fake_dataset_timellm_format,
-    partim_to_timellm_format,
-    split_tim_and_par_files,
-    toas_to_timellm_format,
+from tingan.inputs.arguments import (
+    load_config,
+    setting_str_from_args,
 )
-from tingan.gp_rednoise import gp_dataset_for_timellm
+from tingan.inputs.data import compute_path_data, load_timellm_dataset
 from tingan.networks import TimeSeriesDiscriminator, trainable_parameters
 from tingan.plots import (
     plot_avg_attention,
@@ -34,7 +28,7 @@ from tingan.plots import (
     plot_timellm_residuals,
     plot_timing_noise,
 )
-from tingan.utils import set_seed, updates_str
+from tingan.utils import set_seed
 
 if __name__ == "__main__":
     som = tf.SecondOfMinute()
@@ -48,158 +42,17 @@ if __name__ == "__main__":
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:64"
 
     # Loading configuration
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-i",
-        "--input_file",
-        required=False,
-        default="timellm_config.json",
-        type=str,
-        help="Input file",
-    )
-    args = parser.parse_args()
-    with Path(args.input_file).open() as f:
-        t_args = argparse.Namespace()
-        t_args.__dict__.update(json.load(f))
-    args = parser.parse_args(namespace=t_args)
-
-    if args.seed is None:
-        args.seed = torch.initial_seed() % 2**32
+    args = load_config(script=Path(__file__).name)
     set_seed(args.seed, set_=args.use_seed)
-
-    # Necessary parameters that should not be modified
-    args.model = "TimeLLM"
-    args.data = "Pulsar"
-    args.llm_model = "LLAMA"
-    args.llm_dim = 4096
-    args.prompt_domain = True
-    if args.content is None:
-        args.content = load_content(args)
-    args.seasonal_patterns = None
-    args.features = "S"
-    args.percent = 100
 
     # Setting up distributed training and accelerator, from Time-LLM original scripts
     ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
     accelerator = Accelerator(kwargs_handlers=[ddp_kwargs])
 
-    d_updates_per_batch_str, d_updates_epochs_str = updates_str(
-        args.d_updates_per_batch, args.d_updates_epochs
-    )
-    g_updates_per_batch_str, _ = updates_str(
-        args.g_updates_per_batch, args.d_updates_epochs
-    )
-
     # Setting record of experiments
-    setting = (
-        f"{args.task_name}_"
-        f"{args.model}_"
-        f"{args.llm_model}_"
-        f"{args.data}_"
-        f"nr{args.skiprows}"
-        f"-{args.nrows}_"
-        f"{d_updates_per_batch_str}_"
-        f"{g_updates_per_batch_str}_"
-        f"{d_updates_epochs_str}_"
-        f"bs{args.batch_size}_"
-        f"sl{args.seq_len}_"
-        f"ll{args.label_len}_"
-        f"pl{args.pred_len}_"
-        f"ptl{args.patch_len}_"
-        f"ll{args.llm_layers}_"
-        f"do{args.dropout}_"
-        f"sd{args.stride}_"
-        f"lr{args.learning_rate}_"
-        f"{args.lradj}_"
-        f"ps{args.pct_start}_"
-        f"dm{args.d_model}_"
-        f"nh{args.n_heads}_"
-        f"df{args.d_ff}_"
-        f"eb{args.embed}_"
-        f"ei{args.enc_in}_"
-        f"se{args.seed}"
-    )
+    setting = setting_str_from_args(args)
 
-    print(setting)
-
-    if "JBO" in args.root_path:
-        args, td, vd = gp_dataset_for_timellm(args, save_npy=False)
-        train_data = torch.utils.data.ConcatDataset(td)
-        train_data, train_loader = data_provider(
-            args,
-            "train",
-            seed=args.seed if args.use_seed else None,
-            data_set=train_data,
-        )
-        val_data = torch.utils.data.ConcatDataset(vd)
-        vali_data, vali_loader = data_provider(
-            args, "val", seed=args.seed if args.use_seed else None, data_set=val_data
-        )
-        path_data = Path(args.root_path) / Path(args.data_path)
-    else:
-        path_data = Path(args.root_path) / Path(args.data_path)
-        if not path_data.exists():
-            if "_gp.csv" in args.data_path:
-                gp = np.load(Path(args.root_path) / "gp4096.npy")[124]
-                fake_dataset_timellm_format(
-                    time_start="1990-01-02T10:00:00",
-                    nt=len(gp) // 2,
-                    delta=int(24 * 3600 * (gp[1] - gp[0])),
-                    dist=gp[len(gp) // 2 :],
-                    path=args.root_path,
-                )
-            elif len(args.data_path.split("_")) == 4:
-                fake_dataset_timellm_format(
-                    time_start=args.data_path.split("_")[0],
-                    nt=int(float(args.data_path.split("_")[1])),
-                    delta=int(float(args.data_path.split("_")[2])),
-                    dist=args.data_path.split("_")[3][:-4],
-                    path=args.root_path,
-                )
-            elif path_data.with_suffix(".reswerr").exists():
-                frame = np.loadtxt(
-                    path_data.with_suffix(".reswerr"),
-                    delimiter=" ",
-                    skiprows=21,
-                )
-                frame = pd.DataFrame(
-                    np.array(
-                        [
-                            toas_to_timellm_format(frame[:, 0]),
-                            frame[:, 4],
-                            1e-6 * frame[:, 2],
-                        ]
-                    ).T
-                )
-                frame.to_csv(
-                    path_data, header=["date", "resid_s", "err_s"], index=False
-                )
-            else:
-                n = split_tim_and_par_files(
-                    path_data.with_suffix(".tim"), path_data.with_suffix(".par")
-                )
-                [*_, prefix, _] = args.data_path.split(".")
-                dfs = [
-                    partim_to_timellm_format(
-                        Path(args.root_path)
-                        / Path(f"{prefix}_{i}").with_suffix(".par"),
-                        Path(args.root_path)
-                        / Path(f"{prefix}_{i}").with_suffix(".tim"),
-                    )
-                    for i in range(n)
-                ]
-                frame = pd.concat(dfs, axis=0, ignore_index=True)
-                frame.to_csv(
-                    path_data, header=["date", "resid_s", "err_s"], index=False
-                )
-
-        # Creating training, validation and test datasets
-        train_data, train_loader = data_provider(
-            args, "train", seed=args.seed if args.use_seed else None
-        )
-        vali_data, vali_loader = data_provider(
-            args, "val", seed=args.seed if args.use_seed else None
-        )
+    train_data, train_loader, vali_data, vali_loader = load_timellm_dataset(args)
 
     # Creating generator and discriminator
     model = TimeLLM.Model(args).float()
@@ -226,7 +79,9 @@ if __name__ == "__main__":
     args.d_updates_epochs = np.array(args.d_updates_epochs).astype(int)
     args.g_updates_per_batch = args.g_updates_per_batch[::-1]
 
-    fig_timellm_residuals = plot_timellm_residuals(path_data, nrows=args.nrows)
+    fig_timellm_residuals = plot_timellm_residuals(
+        compute_path_data(args), nrows=args.nrows
+    )
     fig_timellm_residuals.savefig(path / Path("residuals.png"))
 
     train_steps = len(train_loader)
