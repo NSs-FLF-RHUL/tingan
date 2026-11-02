@@ -270,6 +270,9 @@ def plot_residuals(
     """
     Plot timing noise residuals.
 
+    The mean value of the residuals (which only corresponds to a phase offset), is
+    subtracted from the residuals for plotting.
+
     :param dates_mjd: dates/TOAs in MJD units
     :param resid_s: residuals in seconds
     :param ax: axe to plot on
