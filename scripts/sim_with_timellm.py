@@ -48,10 +48,19 @@ if __name__ == "__main__":
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:64"
 
     # Loading configuration
-    with Path("timellm_config.json").open() as f:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-i",
+        "--input_file",
+        required=False,
+        default="timellm_config.json",
+        type=str,
+        help="Input file",
+    )
+    args = parser.parse_args()
+    with Path(args.input_file).open() as f:
         t_args = argparse.Namespace()
         t_args.__dict__.update(json.load(f))
-    parser = argparse.ArgumentParser()
     args = parser.parse_args(namespace=t_args)
 
     if args.seed is None:
