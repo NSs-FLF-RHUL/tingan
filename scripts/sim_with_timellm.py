@@ -1,31 +1,25 @@
-import argparse
 import json
 import os
 import time
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import timellm.utils.timefeatures as tf
 import torch
 from accelerate import Accelerator, DistributedDataParallelKwargs
-from timellm.data_provider.data_factory import data_provider
 from timellm.models import TimeLLM
 from timellm.utils.tools import (
     adjust_learning_rate,
     create_checkpoint_dict,
-    load_content,
     vali_pulsar,
 )
 from tqdm import tqdm
 
-from tingan.datasets import (
-    fake_dataset_timellm_format,
-    partim_to_timellm_format,
-    split_tim_and_par_files,
-    toas_to_timellm_format,
+from tingan.inputs.arguments import (
+    load_config,
+    setting_str_from_args,
 )
-from tingan.gp_rednoise import gp_dataset_for_timellm
+from tingan.inputs.data import compute_path_data, load_timellm_dataset
 from tingan.networks import TimeSeriesDiscriminator, trainable_parameters
 from tingan.plots import (
     plot_avg_attention,
@@ -34,7 +28,7 @@ from tingan.plots import (
     plot_timellm_residuals,
     plot_timing_noise,
 )
-from tingan.utils import set_seed, updates_str
+from tingan.utils import set_seed
 
 if __name__ == "__main__":
     som = tf.SecondOfMinute()
