@@ -276,7 +276,7 @@ def plot_residuals(
     :param err_s: errors on the TOAs, in seconds
     :param kwargs: keyword arguments passed on to the call drawing the plot markers
     """
-    ax.errorbar(dates_mjd, resid_s, err_s, **kwargs)
+    ax.errorbar(dates_mjd, resid_s - resid_s.mean(), err_s, **kwargs)
     ax.set_xlabel("MJD")
     ax.set_ylabel("Residuals [s]")
 
