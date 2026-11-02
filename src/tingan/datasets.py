@@ -386,7 +386,17 @@ def fake_dataset_timellm_format(
 def get_model_from_json(
     psr_path: str, obs: str, cat: Table | None = None
 ) -> TimingModel:
-    """Create PINT timing model from JSON file."""
+    """
+    Create a PINT timing model from a JSON file.
+
+    The JSON file should contain the following parameters: F0, F1, F2, TNRedAmp,
+    TNRedGam and pepoch. RAJ, DECJ and DM are fetched from the ATNF pulsar catalog
+    if not present in the JSON file.
+
+    :param psr_path: path to pulsar folder. Should end with /PSR_NAME.
+    :param obs: observatory name
+    :param cat: ATNF pulsar catalog.
+    """
     if cat is None:
         cat = get_catalogue()
 
