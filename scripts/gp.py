@@ -47,6 +47,15 @@ def plot_and_save_residuals(
     fig.savefig(figname)
 
 
+def load_timing_residuals_and_errors(psr_path: Path) -> tuple[np.ndarray, np.ndarray]:
+    """Load timing residuals and errors for a given pulsar path."""
+    # Load residuals
+    r = np.load(psr_path / "res.npy")
+    # Load errors
+    _, _, e = load_residuals(psr_path / "residuals.npz")
+    return r, e
+
+
 if __name__ == "__main__":
     setup_log(level="WARNING")
 
@@ -93,14 +102,9 @@ if __name__ == "__main__":
     psrs = tuple(Path(args.data_path).glob("[JB]*"))
 
     for i in range(len(psrs)):
-        # Load residuals
-        residuals = np.load(psrs[i] / "res.npy")
-
+        residuals, err = load_timing_residuals_and_errors(psrs[i])
         if len(residuals) > 500:
             continue
-
-        # Load errors
-        _, _, err = load_residuals(psrs[i] / "residuals.npz")
 
         # Fit a Gaussian process to the residuals
         gpr, score, rm, rs = fit_residual_gp(
