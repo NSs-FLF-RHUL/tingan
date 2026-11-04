@@ -133,7 +133,7 @@ if __name__ == "__main__":
         gp_regressor, regression_score, resid_mean, resid_std = fit_residuals_with_gp(
             residuals, err if args.err else None, args.nu, psrs[i]
         )
-        if regression_score > 0.5:
+        if regression_score < 0.5:
             continue
 
         # Future observation times
