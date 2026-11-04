@@ -242,10 +242,10 @@ def fit_residual_gp(  # noqa: PLR0913
     *,
     normalize_y: bool = True,
 ) -> tuple[GaussianProcessRegressor, float, float, float]:
-    """
+    r"""
     Fit a Matérn GP to the residuals.
 
-    The Matérn kernel with smoothness nu is more flexible than RBF and
+    The Matérn kernel with smoothness $\nu$ is more flexible than RBF and
     can capture a range of spectral shapes.
 
     :param t_list: timestamps for each series
