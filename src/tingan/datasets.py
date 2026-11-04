@@ -403,7 +403,14 @@ def get_model_from_json(
     psr_name = psr_path.name
 
     psrj = cat["PSRJ"]
-    ipsr = np.where(psrj == psr_name)[0][0]
+    ipsr = np.where(psrj == psr_name)[0]
+    if len(ipsr) == 0:
+        psrb = cat["BNAME"].filled("")
+        ipsr = np.where(psrb == psr_name)[0]
+        if len(ipsr) == 0:
+            err_msg = f"Cannot find pulsar {psr_name} in catalog."
+            raise ValueError(err_msg)
+    ipsr = ipsr[0]
 
     psr_param = load_json(f"{psr_path}/model_params.json")
     _, nwav = load_rednoise_model(f"{psr_path}/tempo2_fit_info.npz")
