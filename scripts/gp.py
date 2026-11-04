@@ -137,14 +137,6 @@ def simulate_noisy_toas(
             psr_path / f"mock_resid_contrib{jnoise}.png",
         )
 
-    # Add residuals to future TOAs
-    plot_and_save_residuals(
-        toas_no_resid.get_mjds(),
-        Residuals(toas_no_resid, tm).time_resids.to(u.s),
-        toas_no_resid.get_errors().to(u.s),
-        psr_path / "mock_nonoise_resid.png",
-    )
-
     return toas_temp
 
 
