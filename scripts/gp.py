@@ -140,6 +140,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # Future observation times
+    mjd_pred = 61406 + np.arange(args.npred) * args.dpred
+    pred_delta = mjd_pred.max() - mjd_pred.min()
+
     # Get pulsar data paths
     psrs = tuple(Path(args.data_path).glob("[JB]*"))
 
@@ -155,8 +159,6 @@ if __name__ == "__main__":
         if regression_score < 0.5:
             continue
 
-        # Future observation times
-        mjd_pred = 61406 + np.arange(args.npred) * args.dpred
         # Past and future observation times
         mjd_all = np.concatenate((residuals[:, 0], mjd_pred)).reshape(-1, 1)
 
@@ -164,7 +166,7 @@ if __name__ == "__main__":
             tm.TNREDGAM.value,
             tm.TNREDAMP.value,
             args.npred,
-            mjd_pred.max() - mjd_pred.min(),
+            pred_delta,
         )
         print("Model fitted to real data:")
         print(tm)
