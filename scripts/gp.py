@@ -105,6 +105,50 @@ def simulate_residuals(
     return sample_residual(t=mjd, residual_gp=gpr) * scale + mean
 
 
+def simulate_noisy_toas(
+    tm: TimingModel, mjd: np.ndarray, noise_contrib: list
+) -> toa.TOAs:
+    """Simulate noisy TOAs at given dates according to timing model."""
+    tm.remove_component("PLRedNoise")
+    toas_no_resid = make_fake_toas_fromMJDs(
+        Time(mjd, scale="utc", format="pulsar_mjd", precision=9),
+        tm,
+        obs=tm["TZRSITE"].value,
+    )
+    toas_with_resid = toas_no_resid.get_mjds(high_precision=True)
+    for jnoise in range(len(noise_contrib)):
+        for itoa in range(len(toas_with_resid)):
+            toas_with_resid[itoa] += TimeDelta(
+                noise_contrib[jnoise][-args.npred :][itoa] * u.s
+            )
+
+        toas_with_resid = np.array(
+            [toas_with_resid[itoa].value for itoa in range(len(toas_with_resid))],
+            dtype=np.float64,
+        )
+        toas_with_resid = Time(toas_with_resid, scale="utc", format="pulsar_mjd")
+        toas_temp = toa.get_TOAs_array(
+            toas_with_resid, obs=args.obs, errors=err[-1] * u.s
+        )
+
+        plot_and_save_residuals(
+            toas_temp.get_mjds(),
+            Residuals(toas_temp, tm).time_resids.to(u.s),
+            toas_temp.get_errors().to(u.s),
+            psrs[i] / f"mock_resid_contrib{jnoise}.png",
+        )
+
+    # Add residuals to future TOAs
+    plot_and_save_residuals(
+        toas_no_resid.get_mjds(),
+        Residuals(toas_no_resid, tm).time_resids.to(u.s),
+        toas_no_resid.get_errors().to(u.s),
+        psrs[i] / "mock_nonoise_resid.png",
+    )
+
+    return toas_temp
+
+
 if __name__ == "__main__":
     setup_log(level="WARNING")
 
@@ -155,7 +199,7 @@ if __name__ == "__main__":
     psrs = tuple(Path(args.data_path).glob("[JB]*"))
 
     for i in range(len(psrs)):
-        residuals, err, tm = load_timing_results(psrs[i], args.obs)
+        residuals, err, timing_model = load_timing_results(psrs[i], args.obs)
         if len(residuals) > 500:
             continue
 
@@ -170,79 +214,35 @@ if __name__ == "__main__":
         mjd_all = np.concatenate((residuals[:, 0], mjd_pred)).reshape(-1, 1)
 
         noise = simulate_red_noise(
-            tm.TNREDGAM.value,
-            tm.TNREDAMP.value,
+            timing_model.TNREDGAM.value,
+            timing_model.TNREDAMP.value,
             args.npred,
             pred_delta,
         )
         # Sample residuals from the fitted Gaussian Process
-        resid_pred = simulate_residuals(mjd_pred, gp_regressor, resid_std, resid_mean)
+        noise1 = simulate_residuals(mjd_pred, gp_regressor, resid_std, resid_mean)
         print("Model fitted to real data:")
-        print(tm)
+        print(timing_model)
 
         # Create TOAs for future observation given the timing model we just created
-        tm.remove_component("PLRedNoise")
-        toas_no_resid = make_fake_toas_fromMJDs(
-            Time(mjd_pred, scale="utc", format="pulsar_mjd", precision=9),
-            tm,
-            obs=args.obs,
-        )
-
-        # Add residuals to future TOAs
-        plot_and_save_residuals(
-            toas_no_resid.get_mjds(),
-            Residuals(toas_no_resid, tm).time_resids.to(u.s),
-            toas_no_resid.get_errors().to(u.s),
-            psrs[i] / "mock_nonoise_resid.png",
-        )
-        toas_with_resid = toas_no_resid.get_mjds(high_precision=True)
-
-        for itoa in range(len(toas_with_resid)):
-            toas_with_resid[itoa] += TimeDelta(resid_pred[-args.npred :] * u.s)[itoa]
-        toas_temp = np.array(
-            [toas_with_resid[itoa].value for itoa in range(len(toas_with_resid))],
-            dtype=np.float64,
-        )
-        toas_temp = Time(toas_temp, scale="utc", format="pulsar_mjd")
-        toas_temp = toa.get_TOAs_array(toas_temp, obs=args.obs, errors=err[-1] * u.s)
-        plot_and_save_residuals(
-            toas_temp.get_mjds(),
-            Residuals(toas_temp, tm).time_resids.to(u.s),
-            toas_temp.get_errors().to(u.s),
-            psrs[i] / "mock_resid.png",
-        )
-
-        for itoa in range(len(toas_with_resid)):
-            toas_with_resid[itoa] += noise[itoa] * u.s
-            toas_with_resid[itoa] = toas_with_resid[itoa].value
-        toas_with_resid = np.array(toas_with_resid, dtype=np.float64)
-        toas_with_resid = Time(toas_with_resid, scale="utc", format="pulsar_mjd")
-        toas_with_resid = toa.get_TOAs_array(
-            toas_with_resid, obs=args.obs, errors=err[-1] * u.s
-        )
-        plot_and_save_residuals(
-            toas_with_resid.get_mjds(),
-            Residuals(toas_with_resid, tm).time_resids.to(u.s),
-            toas_with_resid.get_errors().to(u.s),
-            psrs[i] / "mock_resid_rn.png",
-        )
+        noisy_toas = simulate_noisy_toas(timing_model, mjd_pred, [noise, noise1])
 
         # Fit timing model to future TOAs
-        tm_temp = deepcopy(tm)
+        tm_temp = deepcopy(timing_model)
         print("Computing optimal number of harmonics...")
         nharm_opt, d_aics = find_optimal_nharms(
             tm_temp,
-            toas_with_resid,
+            noisy_toas,
             "WaveX",
             30,  # tm.TNREDC.value
         )
         print("Optimal number of harmonics:", nharm_opt)
 
         tm_fit = deepcopy(tm_temp)
-        Tspan = toas_with_resid.get_mjds().max() - toas_with_resid.get_mjds().min()
+        Tspan = noisy_toas.get_mjds().max() - noisy_toas.get_mjds().min()
         wavex_setup(tm_fit, T_span=Tspan, n_freqs=nharm_opt, freeze_params=False)
 
-        f = WLSFitter(toas_with_resid, tm_fit)
+        f = WLSFitter(noisy_toas, tm_fit)
         f.fit_toas()
         tm_fitted = f.model
 
@@ -253,9 +253,9 @@ if __name__ == "__main__":
         tm_fitted_pl.write_parfile(psrs[i] / "mockfit_parfile_PL.par")
 
         plot_and_save_residuals(
-            toas_with_resid.get_mjds(),
+            noisy_toas.get_mjds(),
             f.resids.time_resids.to(u.s),
-            toas_with_resid.get_errors().to(u.s),
+            noisy_toas.get_errors().to(u.s),
             psrs[i] / "mock_postfit_resid.png",
         )
 
