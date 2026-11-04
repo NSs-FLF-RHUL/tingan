@@ -48,11 +48,12 @@ def plot_and_save_residuals(
 
 
 def load_timing_residuals_and_errors(psr_path: Path) -> tuple[np.ndarray, np.ndarray]:
-    """Load timing residuals and errors for a given pulsar path."""
+    """Load timing residuals and errors for a given pulsar path, and plot them."""
     # Load residuals
     r = np.load(psr_path / "res.npy")
     # Load errors
     _, _, e = load_residuals(psr_path / "residuals.npz")
+    plot_and_save_residuals(r[:, 0], r[:, 2], e, psr_path / "data_residuals.png")
     return r, e
 
 
@@ -121,10 +122,6 @@ if __name__ == "__main__":
 
         fig = plot_kernels(gpr, score=score)
         fig.savefig(psrs[i] / "kernels.png")
-
-        plot_and_save_residuals(
-            residuals[:, 0], residuals[:, 2], err, psrs[i] / "data_residuals.png"
-        )
 
         # Future observation times
         mjd_pred = 61406 + np.arange(args.npred) * args.dpred
