@@ -79,6 +79,19 @@ def fit_residuals_with_gp(
     return gpr, score, rm, rs
 
 
+def simulate_red_noise(gam: float, amp: float, npred: int, delta: float) -> np.ndarray:
+    """Simulate a random red noise realization from spectral parameters."""
+    power, freq = simulate_power_spectrum(
+        gam,
+        amp,
+        nreal=1,
+        npoints=npred,
+        dt=SECONDS_PER_DAY * delta / npred,
+    )
+    red_noise = simulate_noise_from_power_spectrum(power, freq, nreal=1, npoints=npred)
+    return red_noise[0][0]
+
+
 if __name__ == "__main__":
     setup_log(level="WARNING")
 
@@ -142,15 +155,11 @@ if __name__ == "__main__":
         mjd_all = np.concatenate((residuals[:, 0], mjd_pred)).reshape(-1, 1)
 
         tm = get_model_from_json(psrs[i], obs=args.obs)
-        power, freq = simulate_power_spectrum(
+        noise = simulate_red_noise(
             tm.TNREDGAM.value,
             tm.TNREDAMP.value,
-            nreal=1,
-            npoints=args.npred,
-            dt=(SECONDS_PER_DAY * (mjd_pred.max() - mjd_pred.min())) / args.npred,
-        )
-        noise = simulate_noise_from_power_spectrum(
-            power, freq, nreal=1, npoints=args.npred
+            args.npred,
+            mjd_pred.max() - mjd_pred.min(),
         )
         print("Model fitted to real data:")
         print(tm)
@@ -196,7 +205,7 @@ if __name__ == "__main__":
         )
 
         for itoa in range(len(toas_with_resid)):
-            toas_with_resid[itoa] += noise[0][0][itoa] * u.s
+            toas_with_resid[itoa] += noise[itoa] * u.s
             toas_with_resid[itoa] = toas_with_resid[itoa].value
         toas_with_resid = np.array(toas_with_resid, dtype=np.float64)
         toas_with_resid = Time(toas_with_resid, scale="utc", format="pulsar_mjd")
