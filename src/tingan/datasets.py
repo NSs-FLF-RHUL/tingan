@@ -161,7 +161,7 @@ class RealTimingNoise(torch.utils.data.Dataset):
         return float(self.mjds.std())
 
 
-def load_residuals(path: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def load_residuals(path: str | Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Load real-life timing noise residuals.
 
