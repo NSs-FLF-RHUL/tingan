@@ -4,7 +4,9 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy import units as u
+from astropy.table import Table
 from astropy.time import TimeDelta
+from pandas import DataFrame
 from pint import toa
 from pint.fitter import WLSFitter
 from pint.logging import setup as setup_log
@@ -13,6 +15,7 @@ from pint.pulsar_mjd import Time
 from pint.residuals import Residuals
 from pint.simulation import make_fake_toas_fromMJDs
 from pint.utils import find_optimal_nharms, plrednoise_from_wavex, wavex_setup
+from psrqpy import get_catalogue
 from sklearn.gaussian_process import GaussianProcessRegressor
 
 from tingan.datasets import get_model_from_json, load_residuals
@@ -49,7 +52,7 @@ def plot_and_save_residuals(
 
 
 def load_timing_results(
-    psr_path: Path, obs: str
+    psr_path: Path, obs: str, cat: Table | DataFrame | None = None
 ) -> tuple[np.ndarray, np.ndarray, TimingModel]:
     """Load timing residuals and errors for a given pulsar path, and plot them."""
     # Load residuals
@@ -58,7 +61,7 @@ def load_timing_results(
     _, _, e = load_residuals(psr_path / "residuals.npz")
     plot_and_save_residuals(r[:, 0], r[:, 2], e, psr_path / "data_residuals.png")
     # Load timing model
-    tm = get_model_from_json(psr_path, obs=obs)
+    tm = get_model_from_json(psr_path, obs=obs, cat=cat)
     tm.write_parfile(psr_path / "real_parfile.par")
     return r, e, tm
 
@@ -216,6 +219,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    psr_cat = get_catalogue()
+
     # Future observation times
     mjd_pred = 61406 + np.arange(args.npred) * args.dpred
     pred_delta = mjd_pred.max() - mjd_pred.min()
@@ -224,7 +229,7 @@ if __name__ == "__main__":
     psrs = tuple(Path(args.data_path).glob("[JB]*"))
 
     for psr in psrs:
-        residuals, err, timing_model = load_timing_results(psr, args.obs)
+        residuals, err, timing_model = load_timing_results(psr, args.obs, psr_cat)
         if len(residuals) > 500:
             continue
 

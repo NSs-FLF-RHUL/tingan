@@ -10,6 +10,7 @@ import torch
 from astropy import units as u
 from astropy.table import QTable, Table
 from astropy.timeseries import TimeSeries
+from pandas import DataFrame
 from pint.models import TimingModel, get_model, get_model_and_toas
 from pint.pulsar_mjd import Time
 from pint.residuals import Residuals
@@ -384,7 +385,7 @@ def fake_dataset_timellm_format(
 
 
 def get_model_from_json(
-    psr_path: Path, obs: str, cat: Table | None = None
+    psr_path: Path, obs: str, cat: Table | DataFrame | None = None
 ) -> TimingModel:
     """
     Create a PINT timing model from a JSON file.
