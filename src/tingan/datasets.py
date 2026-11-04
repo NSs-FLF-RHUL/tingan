@@ -384,7 +384,7 @@ def fake_dataset_timellm_format(
 
 
 def get_model_from_json(
-    psr_path: str, obs: str, cat: Table | None = None
+    psr_path: Path, obs: str, cat: Table | None = None
 ) -> TimingModel:
     """
     Create a PINT timing model from a JSON file.
@@ -400,7 +400,7 @@ def get_model_from_json(
     if cat is None:
         cat = get_catalogue()
 
-    psr_name = str(psr_path).split("/")[-1]
+    psr_name = psr_path.name
 
     psrj = cat["PSRJ"]
     ipsr = np.where(psrj == psr_name)[0][0]

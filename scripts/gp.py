@@ -87,7 +87,7 @@ for i in range(len(psrs)):
     # Past and future observation times
     mjd_all = np.concatenate((residuals[:, 0], mjd_pred)).reshape(-1, 1)
 
-    tm = get_model_from_json(str(psrs[i]), obs=args.obs)
+    tm = get_model_from_json(psrs[i], obs=args.obs)
     power, freq = simulate_power_spectrum(
         tm.TNREDGAM.value,
         tm.TNREDAMP.value,
