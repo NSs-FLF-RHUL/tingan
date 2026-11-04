@@ -98,6 +98,13 @@ def simulate_red_noise(gam: float, amp: float, npred: int, delta: float) -> np.n
     return red_noise[0][0]
 
 
+def simulate_residuals(
+    mjd: np.ndarray, gpr: GaussianProcessRegressor, scale: float, mean: float
+) -> np.ndarray:
+    """Simulate residuals."""
+    return sample_residual(t=mjd, residual_gp=gpr) * scale + mean
+
+
 if __name__ == "__main__":
     setup_log(level="WARNING")
 
@@ -168,6 +175,8 @@ if __name__ == "__main__":
             args.npred,
             pred_delta,
         )
+        # Sample residuals from the fitted Gaussian Process
+        resid_pred = simulate_residuals(mjd_pred, gp_regressor, resid_std, resid_mean)
         print("Model fitted to real data:")
         print(tm)
 
@@ -177,13 +186,6 @@ if __name__ == "__main__":
             Time(mjd_pred, scale="utc", format="pulsar_mjd", precision=9),
             tm,
             obs=args.obs,
-        )
-
-        # Sample residuals from the fitted Gaussian Process
-        rng1 = np.random.default_rng(0)
-        resid_pred = (
-            sample_residual(t=mjd_all, residual_gp=gp_regressor) * resid_std
-            + resid_mean
         )
 
         # Add residuals to future TOAs
