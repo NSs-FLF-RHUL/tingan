@@ -9,6 +9,7 @@ from astropy.time import TimeDelta
 from pint import toa
 from pint.fitter import WLSFitter
 from pint.logging import setup as setup_log
+from pint.models import TimingModel
 from pint.pulsar_mjd import Time
 from pint.residuals import Residuals
 from pint.simulation import make_fake_toas_fromMJDs
@@ -48,14 +49,18 @@ def plot_and_save_residuals(
     fig.savefig(figname)
 
 
-def load_timing_residuals_and_errors(psr_path: Path) -> tuple[np.ndarray, np.ndarray]:
+def load_timing_results(
+    psr_path: Path, obs: str
+) -> tuple[np.ndarray, np.ndarray, TimingModel]:
     """Load timing residuals and errors for a given pulsar path, and plot them."""
     # Load residuals
     r = np.load(psr_path / "res.npy")
     # Load errors
     _, _, e = load_residuals(psr_path / "residuals.npz")
     plot_and_save_residuals(r[:, 0], r[:, 2], e, psr_path / "data_residuals.png")
-    return r, e
+    # Load timing model
+    tm = get_model_from_json(psr_path, obs=obs)
+    return r, e, tm
 
 
 def fit_residuals_with_gp(
@@ -138,7 +143,7 @@ if __name__ == "__main__":
     psrs = tuple(Path(args.data_path).glob("[JB]*"))
 
     for i in range(len(psrs)):
-        residuals, err = load_timing_residuals_and_errors(psrs[i])
+        residuals, err, tm = load_timing_results(psrs[i], args.obs)
         if len(residuals) > 500:
             continue
 
@@ -154,7 +159,6 @@ if __name__ == "__main__":
         # Past and future observation times
         mjd_all = np.concatenate((residuals[:, 0], mjd_pred)).reshape(-1, 1)
 
-        tm = get_model_from_json(psrs[i], obs=args.obs)
         noise = simulate_red_noise(
             tm.TNREDGAM.value,
             tm.TNREDAMP.value,
