@@ -1,5 +1,4 @@
 from argparse import ArgumentParser
-from copy import deepcopy
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -149,6 +148,40 @@ def simulate_noisy_toas(
     return toas_temp
 
 
+def fit_toas_with_timing_model_and_red_noise(
+    toas: toa.TOAs, tm_temp: TimingModel, psr_path: Path
+) -> None:
+    """Fit TOAs with timing model and red noise."""
+    print("Computing optimal number of harmonics...")
+    nharm_opt, d_aics = find_optimal_nharms(
+        tm_temp,
+        toas,
+        "WaveX",
+        30,
+    )
+    print("Optimal number of harmonics:", nharm_opt)
+
+    tspan = toas.get_mjds().max() - toas.get_mjds().min()
+    wavex_setup(tm_temp, T_span=tspan, n_freqs=nharm_opt, freeze_params=False)
+
+    f = WLSFitter(toas, tm_temp)
+    f.fit_toas()
+    tm_fitted = f.model
+
+    tm_fitted_pl = plrednoise_from_wavex(tm_fitted)
+    print("Model fitted to fake data:")
+    print(tm_fitted_pl)
+    tm_fitted.write_parfile(psr_path / "mockfit_parfile_wavex.par")
+    tm_fitted_pl.write_parfile(psr_path / "mockfit_parfile_PL.par")
+
+    plot_and_save_residuals(
+        toas.get_mjds(),
+        f.resids.time_resids.to(u.s),
+        toas.get_errors().to(u.s),
+        psr_path / "mock_postfit_resid.png",
+    )
+
+
 if __name__ == "__main__":
     setup_log(level="WARNING")
 
@@ -228,35 +261,6 @@ if __name__ == "__main__":
         noisy_toas = simulate_noisy_toas(timing_model, mjd_pred, [noise, noise1])
 
         # Fit timing model to future TOAs
-        tm_temp = deepcopy(timing_model)
-        print("Computing optimal number of harmonics...")
-        nharm_opt, d_aics = find_optimal_nharms(
-            tm_temp,
-            noisy_toas,
-            "WaveX",
-            30,  # tm.TNREDC.value
-        )
-        print("Optimal number of harmonics:", nharm_opt)
-
-        tm_fit = deepcopy(tm_temp)
-        Tspan = noisy_toas.get_mjds().max() - noisy_toas.get_mjds().min()
-        wavex_setup(tm_fit, T_span=Tspan, n_freqs=nharm_opt, freeze_params=False)
-
-        f = WLSFitter(noisy_toas, tm_fit)
-        f.fit_toas()
-        tm_fitted = f.model
-
-        tm_fitted_pl = plrednoise_from_wavex(tm_fitted)
-        print("Model fitted to fake data:")
-        print(tm_fitted_pl)
-        tm_fitted.write_parfile(psrs[i] / "mockfit_parfile_wavex.par")
-        tm_fitted_pl.write_parfile(psrs[i] / "mockfit_parfile_PL.par")
-
-        plot_and_save_residuals(
-            noisy_toas.get_mjds(),
-            f.resids.time_resids.to(u.s),
-            noisy_toas.get_errors().to(u.s),
-            psrs[i] / "mock_postfit_resid.png",
-        )
+        fit_toas_with_timing_model_and_red_noise(noisy_toas, timing_model, psrs[i])
 
         plt.show()
