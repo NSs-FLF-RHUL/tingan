@@ -32,7 +32,7 @@ def load_gammas_and_amplitudes(psrs: tuple, *, no_f2: bool = True) -> tuple:
 
     :param psrs: Pulsar folders that contain
      timing fit results (model_params.json and residuals.npz).
-     :param no_f2: Wether to include F2
+    :param no_f2: Wether to include F2 (spin fq. 2nd derivative) in the timing model
     """
     npsrs = len(psrs)
     gammas, amplitudes, tstart, tspans = (
