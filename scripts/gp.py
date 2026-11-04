@@ -13,6 +13,7 @@ from pint.pulsar_mjd import Time
 from pint.residuals import Residuals
 from pint.simulation import make_fake_toas_fromMJDs
 from pint.utils import find_optimal_nharms, plrednoise_from_wavex, wavex_setup
+from sklearn.gaussian_process import GaussianProcessRegressor
 
 from tingan.datasets import get_model_from_json, load_residuals
 from tingan.gp_rednoise import (
@@ -55,6 +56,27 @@ def load_timing_residuals_and_errors(psr_path: Path) -> tuple[np.ndarray, np.nda
     _, _, e = load_residuals(psr_path / "residuals.npz")
     plot_and_save_residuals(r[:, 0], r[:, 2], e, psr_path / "data_residuals.png")
     return r, e
+
+
+def fit_residuals_with_gp(
+    resid: np.ndarray, res_err: np.ndarray | None, nu: float, psr_path: Path
+) -> tuple[GaussianProcessRegressor, float, float, float]:
+    """Fit timing residuals, and plot the pre- adn post-fit kernels."""
+    # Fit a Gaussian process to the residuals
+    gpr, score, rm, rs = fit_residual_gp(
+        t_list=resid[:, 0],
+        residual_list=resid[:, 2],
+        n_restarts=5,
+        nu_mattern=nu,
+        err_list=res_err,
+    )
+    # Check fitted paameters are within bounds
+    check_kernel(gpr.get_params())
+
+    fig = plot_kernels(gpr, score=score)
+    fig.savefig(psr_path / "kernels.png")
+
+    return gpr, score, rm, rs
 
 
 if __name__ == "__main__":
@@ -108,20 +130,11 @@ if __name__ == "__main__":
             continue
 
         # Fit a Gaussian process to the residuals
-        gpr, score, rm, rs = fit_residual_gp(
-            t_list=residuals[:, 0],
-            residual_list=residuals[:, 2],
-            n_restarts=5,
-            nu_mattern=args.nu,
-            err_list=err if args.err else None,
+        gp_regressor, regression_score, resid_mean, resid_std = fit_residuals_with_gp(
+            residuals, err if args.err else None, args.nu, psrs[i]
         )
-        check_kernel(gpr.get_params())
-
-        if score < 0.5:
+        if regression_score > 0.5:
             continue
-
-        fig = plot_kernels(gpr, score=score)
-        fig.savefig(psrs[i] / "kernels.png")
 
         # Future observation times
         mjd_pred = 61406 + np.arange(args.npred) * args.dpred
@@ -153,7 +166,10 @@ if __name__ == "__main__":
 
         # Sample residuals from the fitted Gaussian Process
         rng1 = np.random.default_rng(0)
-        resid_pred = sample_residual(t=mjd_all, residual_gp=gpr) * rs + rm
+        resid_pred = (
+            sample_residual(t=mjd_all, residual_gp=gp_regressor) * resid_std
+            + resid_mean
+        )
 
         # Add residuals to future TOAs
         plot_and_save_residuals(
