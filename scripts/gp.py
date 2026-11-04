@@ -45,11 +45,12 @@ parser.add_argument(
 parser.add_argument(
     "--obs", required=False, default="jodrell", type=str, help="Observatory"
 )
+parser.add_argument("--data_path", required=True, type=str, help="Path to data files")
 
 args = parser.parse_args()
 
 # Get pulsar data paths
-psrs = tuple(Path("/home/jberteaud/Science/EOS/tingan/data/real/").glob("[JB]*"))
+psrs = tuple(Path(args.data_path).glob("[JB]*"))
 
 for i in range(len(psrs)):
     # Load residuals
