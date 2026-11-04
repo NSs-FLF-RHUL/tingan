@@ -303,9 +303,9 @@ def sample_residual(
     if rng is None:
         rng = np.random.default_rng()
 
-    random_state = rng.integers(0, 2**31)
+    random_state = rng.integers(0, 2**31).astype(int)
     return residual_gp.sample_y(
-        t.reshape(-1, 1), n_samples=1, random_state=int(random_state)
+        t.reshape(-1, 1), n_samples=1, random_state=random_state
     ).squeeze()
 
 
