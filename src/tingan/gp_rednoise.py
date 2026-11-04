@@ -122,11 +122,11 @@ def marginalize_2d_kde(kde: np.ndarray, dim: int, data: np.ndarray) -> np.ndarra
 
 
 def simulate_power_spectrum(
-    gammas: np.ndarray | list,
-    amplitudes: list | np.ndarray,
+    gammas: np.ndarray | list | float,
+    amplitudes: np.ndarray | list | float,
     nreal: int = 100,
     npoints: int = 1024,
-    dt: float | np.ndarray = 1800000.0,
+    dt: np.ndarray | list | float = 1800000.0,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Simulate red noise power spectra.
