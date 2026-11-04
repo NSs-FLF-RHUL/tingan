@@ -60,6 +60,7 @@ def load_timing_results(
     plot_and_save_residuals(r[:, 0], r[:, 2], e, psr_path / "data_residuals.png")
     # Load timing model
     tm = get_model_from_json(psr_path, obs=obs)
+    tm.write_parfile(psrs[i] / "real_parfile.par")
     return r, e, tm
 
 
@@ -169,7 +170,6 @@ if __name__ == "__main__":
         print(tm)
 
         # Create TOAs for future observation given the timing model we just created
-        tm.write_parfile(psrs[i] / "real_parfile.par")
         tm.remove_component("PLRedNoise")
         toas_no_resid = make_fake_toas_fromMJDs(
             Time(mjd_pred, scale="utc", format="pulsar_mjd", precision=9),
