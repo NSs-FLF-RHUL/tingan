@@ -59,7 +59,7 @@ def load_timing_results(
     plot_and_save_residuals(r[:, 0], r[:, 2], e, psr_path / "data_residuals.png")
     # Load timing model
     tm = get_model_from_json(psr_path, obs=obs)
-    tm.write_parfile(psrs[i] / "real_parfile.par")
+    tm.write_parfile(psr_path / "real_parfile.par")
     return r, e, tm
 
 
@@ -105,7 +105,7 @@ def simulate_residuals(
 
 
 def simulate_noisy_toas(
-    tm: TimingModel, mjd: np.ndarray, noise_contrib: list
+    tm: TimingModel, mjd: np.ndarray, noise_contrib: list, psr_path: Path
 ) -> toa.TOAs:
     """Simulate noisy TOAs at given dates according to timing model."""
     tm.remove_component("PLRedNoise")
@@ -134,7 +134,7 @@ def simulate_noisy_toas(
             toas_temp.get_mjds(),
             Residuals(toas_temp, tm).time_resids.to(u.s),
             toas_temp.get_errors().to(u.s),
-            psrs[i] / f"mock_resid_contrib{jnoise}.png",
+            psr_path / f"mock_resid_contrib{jnoise}.png",
         )
 
     # Add residuals to future TOAs
@@ -142,7 +142,7 @@ def simulate_noisy_toas(
         toas_no_resid.get_mjds(),
         Residuals(toas_no_resid, tm).time_resids.to(u.s),
         toas_no_resid.get_errors().to(u.s),
-        psrs[i] / "mock_nonoise_resid.png",
+        psr_path / "mock_nonoise_resid.png",
     )
 
     return toas_temp
@@ -231,14 +231,14 @@ if __name__ == "__main__":
     # Get pulsar data paths
     psrs = tuple(Path(args.data_path).glob("[JB]*"))
 
-    for i in range(len(psrs)):
-        residuals, err, timing_model = load_timing_results(psrs[i], args.obs)
+    for psr in psrs:
+        residuals, err, timing_model = load_timing_results(psr, args.obs)
         if len(residuals) > 500:
             continue
 
         # Fit a Gaussian process to the residuals
         gp_regressor, regression_score, resid_mean, resid_std = fit_residuals_with_gp(
-            residuals, err if args.err else None, args.nu, psrs[i]
+            residuals, err if args.err else None, args.nu, psr
         )
         if regression_score < 0.5:
             continue
@@ -258,9 +258,9 @@ if __name__ == "__main__":
         print(timing_model)
 
         # Create TOAs for future observation given the timing model we just created
-        noisy_toas = simulate_noisy_toas(timing_model, mjd_pred, [noise, noise1])
+        noisy_toas = simulate_noisy_toas(timing_model, mjd_pred, [noise, noise1], psr)
 
         # Fit timing model to future TOAs
-        fit_toas_with_timing_model_and_red_noise(noisy_toas, timing_model, psrs[i])
+        fit_toas_with_timing_model_and_red_noise(noisy_toas, timing_model, psr)
 
         plt.show()
