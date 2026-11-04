@@ -25,6 +25,28 @@ from tingan.gp_rednoise import (
 )
 from tingan.plots import plot_kernels, plot_residuals
 
+
+def plot_and_save_residuals(
+    dates: np.ndarray, resid: np.ndarray, res_err: np.ndarray, figname: Path
+) -> None:
+    """
+    Plot and save timing noise residuals.
+
+    The parameters are the same as for plot_residuals, plus figname, the path where
+    the figure will be saved.
+    """
+    fig, ax = plt.subplots()
+    plot_residuals(
+        dates_mjd=dates,
+        resid_s=resid,
+        err_s=res_err,
+        ax=ax,
+        fmt="x",
+    )
+    fig.tight_layout()
+    fig.savefig(figname)
+
+
 if __name__ == "__main__":
     setup_log(level="WARNING")
 
@@ -96,11 +118,9 @@ if __name__ == "__main__":
         fig = plot_kernels(gpr, score=score)
         fig.savefig(psrs[i] / "kernels.png")
 
-        fig_real_resid, ax = plt.subplots()
-        plot_residuals(
-            residuals[:, 0], residuals[:, 2], ax, err_s=err, ls="", marker="x"
+        plot_and_save_residuals(
+            residuals[:, 0], residuals[:, 2], err, psrs[i] / "data_residuals.png"
         )
-        fig_real_resid.savefig(psrs[i] / "data_residuals.png")
 
         # Future observation times
         mjd_pred = 61406 + np.arange(args.npred) * args.dpred
@@ -135,16 +155,12 @@ if __name__ == "__main__":
         resid_pred = sample_residual(t=mjd_all, residual_gp=gpr) * rs + rm
 
         # Add residuals to future TOAs
-        fig_no_noise, ax = plt.subplots()
-        plot_residuals(
-            dates_mjd=toas_no_resid.get_mjds(),
-            resid_s=Residuals(toas_no_resid, tm).time_resids.to(u.s),
-            err_s=toas_no_resid.get_errors().to(u.s),
-            ax=ax,
-            fmt="x",
+        plot_and_save_residuals(
+            toas_no_resid.get_mjds(),
+            Residuals(toas_no_resid, tm).time_resids.to(u.s),
+            toas_no_resid.get_errors().to(u.s),
+            psrs[i] / "mock_nonoise_resid.png",
         )
-        fig_no_noise.tight_layout()
-        fig_no_noise.savefig(psrs[i] / "mock_nonoise_resid.png")
         toas_with_resid = toas_no_resid.get_mjds(high_precision=True)
 
         for itoa in range(len(toas_with_resid)):
@@ -155,16 +171,12 @@ if __name__ == "__main__":
         )
         toas_temp = Time(toas_temp, scale="utc", format="pulsar_mjd")
         toas_temp = toa.get_TOAs_array(toas_temp, obs=args.obs, errors=err[-1] * u.s)
-        fig_resid, ax = plt.subplots()
-        plot_residuals(
-            dates_mjd=toas_temp.get_mjds(),
-            resid_s=Residuals(toas_temp, tm).time_resids.to(u.s),
-            err_s=toas_temp.get_errors().to(u.s),
-            ax=ax,
-            fmt="x",
+        plot_and_save_residuals(
+            toas_temp.get_mjds(),
+            Residuals(toas_temp, tm).time_resids.to(u.s),
+            toas_temp.get_errors().to(u.s),
+            psrs[i] / "mock_resid.png",
         )
-        fig_resid.tight_layout()
-        fig_resid.savefig(psrs[i] / "mock_resid.png")
 
         for itoa in range(len(toas_with_resid)):
             toas_with_resid[itoa] += noise[0][0][itoa] * u.s
@@ -174,16 +186,12 @@ if __name__ == "__main__":
         toas_with_resid = toa.get_TOAs_array(
             toas_with_resid, obs=args.obs, errors=err[-1] * u.s
         )
-        fig_resid, ax = plt.subplots()
-        plot_residuals(
-            dates_mjd=toas_with_resid.get_mjds(),
-            resid_s=Residuals(toas_with_resid, tm).time_resids.to(u.s),
-            err_s=toas_with_resid.get_errors().to(u.s),
-            ax=ax,
-            fmt="x",
+        plot_and_save_residuals(
+            toas_with_resid.get_mjds(),
+            Residuals(toas_with_resid, tm).time_resids.to(u.s),
+            toas_with_resid.get_errors().to(u.s),
+            psrs[i] / "mock_resid_rn.png",
         )
-        fig_resid.tight_layout()
-        fig_resid.savefig(psrs[i] / "mock_resid_rn.png")
 
         # Fit timing model to future TOAs
         tm_temp = deepcopy(tm)
@@ -210,26 +218,11 @@ if __name__ == "__main__":
         tm_fitted.write_parfile(psrs[i] / "mockfit_parfile_wavex.par")
         tm_fitted_pl.write_parfile(psrs[i] / "mockfit_parfile_PL.par")
 
-        fig_post_fit, ax = plt.subplots()
-        plot_residuals(
-            dates_mjd=toas_with_resid.get_mjds(),
-            resid_s=f.resids.time_resids.to(u.s),
-            err_s=toas_with_resid.get_errors().to(u.s),
-            ax=ax,
-            fmt="x",
+        plot_and_save_residuals(
+            toas_with_resid.get_mjds(),
+            f.resids.time_resids.to(u.s),
+            toas_with_resid.get_errors().to(u.s),
+            psrs[i] / "mock_postfit_resid.png",
         )
-        fig_post_fit.tight_layout()
-        fig_post_fit.savefig(psrs[i] / "mock_postfit_resid.png")
-
-        fig_pre_fit, ax = plt.subplots()
-        plot_residuals(
-            dates_mjd=toas_with_resid.get_mjds(),
-            resid_s=Residuals(toas_with_resid, tm_fit).time_resids.to(u.s),
-            err_s=toas_with_resid.get_errors().to(u.s),
-            ax=ax,
-            fmt="x",
-        )
-        fig_pre_fit.tight_layout()
-        fig_pre_fit.savefig(psrs[i] / "mock_pretfit_resid.png")
 
         plt.show()
