@@ -1,18 +1,21 @@
 """tingan's datasets."""
 
 import json
+from io import StringIO
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import torch
 from astropy import units as u
-from astropy.table import QTable
+from astropy.table import QTable, Table
 from astropy.timeseries import TimeSeries
-from pint.models import get_model_and_toas
+from pandas import DataFrame
+from pint.models import TimingModel, get_model, get_model_and_toas
 from pint.pulsar_mjd import Time
 from pint.residuals import Residuals
 from pint.toa import TOAs
+from psrqpy import get_catalogue
 
 from tingan.utils import split_file_at_string
 
@@ -159,12 +162,12 @@ class RealTimingNoise(torch.utils.data.Dataset):
         return float(self.mjds.std())
 
 
-def load_residuals(path: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def load_residuals(path: str | Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Load real-life timing noise residuals.
 
     Each pulsar file contains dates in MJD format, residuals in seconds, and uncertainty
-    of residuals in seconds.
+    of residuals in seconds. Red noise is NOT subtracted from these residuals.
     """
     residuals = np.load(
         path
@@ -379,3 +382,63 @@ def fake_dataset_timellm_format(
         f"{path}/{time_start}_{nt}_{delta}_{dist}.csv", format="csv", overwrite=True
     )
     return ts
+
+
+def get_model_from_json(
+    psr_path: Path, obs: str, cat: Table | DataFrame | None = None
+) -> TimingModel:
+    """
+    Create a PINT timing model from a JSON file.
+
+    The JSON file should contain the following parameters: F0, F1, F2, TNRedAmp,
+    TNRedGam and pepoch. RAJ, DECJ and DM are fetched from the ATNF pulsar catalog
+    if not present in the JSON file.
+
+    :param psr_path: path to pulsar folder. Should end with /PSR_NAME.
+    :param obs: observatory name
+    :param cat: ATNF pulsar catalog.
+    """
+    if cat is None:
+        cat = get_catalogue()
+
+    psr_name = psr_path.name
+
+    psrj = cat["PSRJ"]
+    ipsr = np.where(psrj == psr_name)[0]
+    if len(ipsr) == 0:
+        psrb = cat["BNAME"].filled("")
+        ipsr = np.where(psrb == psr_name)[0]
+        if len(ipsr) == 0:
+            err_msg = f"Cannot find pulsar {psr_name} in catalog."
+            raise ValueError(err_msg)
+    ipsr = ipsr[0]
+
+    psr_param = load_json(f"{psr_path}/model_params.json")
+    _, nwav = load_rednoise_model(f"{psr_path}/tempo2_fit_info.npz")
+
+    for par in ["DM", "RAJ", "DECJ"]:
+        if par not in psr_param:
+            psr_param[par] = cat[par][ipsr]
+
+    par_sim = (
+        f"PSR           {psr_name}\n"
+        f"RAJ           {psr_param['RAJ']}\n"
+        f"DECJ          {psr_param['DECJ']}\n"
+        f"PEPOCH        {Time(psr_param['pepoch'], format='mjd', scale='tdb')}\n"
+        f"F0            {psr_param['F0']}          1\n"
+        f"F1            {psr_param['F1']}       1\n"
+        f"F2            {psr_param['F2']}       1\n"
+        f"PHOFF         0            1\n"
+        f"DM            {psr_param['DM']}\n"
+        f"TNREDAMP      {psr_param['TNRedAmp']}\n"
+        f"TNREDGAM      {psr_param['TNRedGam']}\n"
+        f"TNREDC        {nwav}\n"
+        f"TZRMJD        {Time(psr_param['pepoch'], format='mjd', scale='tdb')}\n"
+        f"TZRFRQ        1400\n"
+        f"TZRSITE       {obs}\n"
+        f"UNITS         TDB\n"
+        f"EPHEM         DE440\n"
+        f"CLOCK         TT(BIPM2019)"
+    )
+
+    return get_model(StringIO(par_sim))

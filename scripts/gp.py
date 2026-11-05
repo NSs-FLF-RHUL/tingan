@@ -1,0 +1,263 @@
+from argparse import ArgumentParser
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+from astropy import units as u
+from astropy.table import Table
+from astropy.time import TimeDelta
+from pandas import DataFrame
+from pint import toa
+from pint.fitter import WLSFitter
+from pint.logging import setup as setup_log
+from pint.models import TimingModel
+from pint.pulsar_mjd import Time
+from pint.residuals import Residuals
+from pint.simulation import make_fake_toas_fromMJDs
+from pint.utils import find_optimal_nharms, plrednoise_from_wavex, wavex_setup
+from psrqpy import get_catalogue
+from sklearn.gaussian_process import GaussianProcessRegressor
+
+from tingan.datasets import get_model_from_json, load_residuals
+from tingan.gp_rednoise import (
+    SECONDS_PER_DAY,
+    check_kernel,
+    fit_residual_gp,
+    sample_residual,
+    simulate_noise_from_power_spectrum,
+    simulate_power_spectrum,
+)
+from tingan.plots import plot_kernels, plot_residuals
+
+
+def plot_and_save_residuals(
+    dates: np.ndarray, resid: np.ndarray, res_err: np.ndarray, figname: Path
+) -> None:
+    """
+    Plot and save timing noise residuals.
+
+    The parameters are the same as for plot_residuals, plus figname, the path where
+    the figure will be saved.
+    """
+    fig, ax = plt.subplots()
+    plot_residuals(
+        dates_mjd=dates,
+        resid_s=resid,
+        err_s=res_err,
+        ax=ax,
+        fmt="x",
+    )
+    fig.tight_layout()
+    fig.savefig(figname)
+
+
+def load_timing_results(
+    psr_path: Path, obs: str, cat: Table | DataFrame | None = None
+) -> tuple[np.ndarray, np.ndarray, TimingModel]:
+    """Load timing residuals and errors for a given pulsar path, and plot them."""
+    # Load residuals
+    r = np.load(psr_path / "res.npy")
+    # Load errors
+    _, _, e = load_residuals(psr_path / "residuals.npz")
+    plot_and_save_residuals(r[:, 0], r[:, 2], e, psr_path / "data_residuals.png")
+    # Load timing model
+    tm = get_model_from_json(psr_path, obs=obs, cat=cat)
+    tm.write_parfile(psr_path / "real_parfile.par")
+    return r, e, tm
+
+
+def fit_residuals_with_gp(
+    resid: np.ndarray, res_err: np.ndarray | None, nu: float, psr_path: Path
+) -> tuple[GaussianProcessRegressor, float, float, float]:
+    """Fit timing residuals, and plot the pre- adn post-fit kernels."""
+    # Fit a Gaussian process to the residuals
+    gpr, score, rm, rs = fit_residual_gp(
+        t_list=resid[:, 0],
+        residual_list=resid[:, 2],
+        n_restarts=5,
+        nu_mattern=nu,
+        err_list=res_err,
+    )
+    # Check fitted paameters are within bounds
+    check_kernel(gpr.get_params())
+
+    fig = plot_kernels(gpr, score=score)
+    fig.savefig(psr_path / "kernels.png")
+
+    return gpr, score, rm, rs
+
+
+def simulate_red_noise(gam: float, amp: float, npred: int, delta: float) -> np.ndarray:
+    """Simulate a random red noise realization from spectral parameters."""
+    power, freq = simulate_power_spectrum(
+        gam,
+        amp,
+        nreal=1,
+        npoints=npred,
+        dt=SECONDS_PER_DAY * delta / npred,
+    )
+    red_noise = simulate_noise_from_power_spectrum(power, freq, nreal=1, npoints=npred)
+    return red_noise[0][0]
+
+
+def simulate_residuals(
+    mjd: np.ndarray, gpr: GaussianProcessRegressor, scale: float, mean: float
+) -> np.ndarray:
+    """Simulate residuals."""
+    return sample_residual(t=mjd, residual_gp=gpr) * scale + mean
+
+
+def simulate_noisy_toas(
+    tm: TimingModel, mjd: np.ndarray, noise_contrib: list, psr_path: Path
+) -> toa.TOAs:
+    """Simulate noisy TOAs at given dates according to timing model."""
+    tm.remove_component("PLRedNoise")
+    toas_no_resid = make_fake_toas_fromMJDs(
+        Time(mjd, scale="utc", format="pulsar_mjd", precision=9),
+        tm,
+        obs=tm["TZRSITE"].value,
+    )
+    toas_with_resid = toas_no_resid.get_mjds(high_precision=True)
+    for jnoise in range(len(noise_contrib)):
+        for itoa in range(len(toas_with_resid)):
+            toas_with_resid[itoa] += TimeDelta(
+                noise_contrib[jnoise][-args.npred :][itoa] * u.s
+            )
+
+        toas_with_resid = np.array(
+            [toas_with_resid[itoa].value for itoa in range(len(toas_with_resid))],
+            dtype=np.float64,
+        )
+        toas_with_resid = Time(toas_with_resid, scale="utc", format="pulsar_mjd")
+        toas_temp = toa.get_TOAs_array(
+            toas_with_resid, obs=args.obs, errors=err[-1] * u.s
+        )
+
+        plot_and_save_residuals(
+            toas_temp.get_mjds(),
+            Residuals(toas_temp, tm).time_resids.to(u.s),
+            toas_temp.get_errors().to(u.s),
+            psr_path / f"mock_resid_contrib{jnoise}.png",
+        )
+
+    return toas_temp
+
+
+def fit_toas_with_timing_model_and_red_noise(
+    toas: toa.TOAs, tm_temp: TimingModel, psr_path: Path
+) -> None:
+    """Fit TOAs with timing model and red noise."""
+    print("Computing optimal number of harmonics...")
+    nharm_opt, d_aics = find_optimal_nharms(
+        tm_temp,
+        toas,
+        "WaveX",
+        30,
+    )
+    print("Optimal number of harmonics:", nharm_opt)
+
+    tspan = toas.get_mjds().max() - toas.get_mjds().min()
+    wavex_setup(tm_temp, T_span=tspan, n_freqs=nharm_opt, freeze_params=False)
+
+    f = WLSFitter(toas, tm_temp)
+    f.fit_toas()
+    tm_fitted = f.model
+
+    tm_fitted_pl = plrednoise_from_wavex(tm_fitted)
+    print("Model fitted to fake data:")
+    print(tm_fitted_pl)
+    tm_fitted.write_parfile(psr_path / "mockfit_parfile_wavex.par")
+    tm_fitted_pl.write_parfile(psr_path / "mockfit_parfile_PL.par")
+
+    plot_and_save_residuals(
+        toas.get_mjds(),
+        f.resids.time_resids.to(u.s),
+        toas.get_errors().to(u.s),
+        psr_path / "mock_postfit_resid.png",
+    )
+
+
+if __name__ == "__main__":
+    setup_log(level="WARNING")
+
+    parser = ArgumentParser()
+
+    parser.add_argument(
+        "--err",
+        required=False,
+        default=False,
+        type=bool,
+        help="Use TOAs errors in GP fit",
+    )
+    parser.add_argument(
+        "--nu",
+        required=False,
+        default=1.5,
+        type=float,
+        help="Matérn smoothness parameter",
+    )
+    parser.add_argument(
+        "--npred",
+        required=False,
+        default=200,
+        type=int,
+        help="Number of TOA predictions",
+    )
+    parser.add_argument(
+        "--dpred",
+        required=False,
+        default=14,
+        type=float,
+        help="Days between predictions",
+    )
+    parser.add_argument(
+        "--obs", required=False, default="jodrell", type=str, help="Observatory"
+    )
+    parser.add_argument(
+        "--data_path", required=True, type=str, help="Path to data files"
+    )
+
+    args = parser.parse_args()
+
+    psr_cat = get_catalogue()
+
+    # Future observation times
+    mjd_pred = 61406 + np.arange(args.npred) * args.dpred
+    pred_delta = mjd_pred.max() - mjd_pred.min()
+
+    # Get pulsar data paths
+    psrs = tuple(Path(args.data_path).glob("[JB]*"))
+
+    for psr in psrs:
+        residuals, err, timing_model = load_timing_results(psr, args.obs, psr_cat)
+        if len(residuals) > 500:
+            continue
+
+        # Fit a Gaussian process to the residuals
+        gp_regressor, regression_score, resid_mean, resid_std = fit_residuals_with_gp(
+            residuals, err if args.err else None, args.nu, psr
+        )
+        if regression_score < 0.5:
+            continue
+
+        # Past and future observation times
+        mjd_all = np.concatenate((residuals[:, 0], mjd_pred)).reshape(-1, 1)
+
+        noise = simulate_red_noise(
+            timing_model.TNREDGAM.value,
+            timing_model.TNREDAMP.value,
+            args.npred,
+            pred_delta,
+        )
+        # Sample residuals from the fitted Gaussian Process
+        noise1 = simulate_residuals(mjd_pred, gp_regressor, resid_std, resid_mean)
+        print("Model fitted to real data:")
+        print(timing_model)
+
+        # Create TOAs for future observation given the timing model we just created
+        noisy_toas = simulate_noisy_toas(timing_model, mjd_pred, [noise, noise1], psr)
+
+        # Fit timing model to future TOAs
+        fit_toas_with_timing_model_and_red_noise(noisy_toas, timing_model, psr)
+
+        plt.show()
